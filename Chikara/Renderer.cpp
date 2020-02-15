@@ -465,8 +465,8 @@ void Renderer::createDescriptorSets()
 void Renderer::createGraphicsPipeline()
 {
   //Read the shader code files and put them into a buffer
-  auto vert_shader_code = readFile("C:/Users/Kaydax/Documents/Stuff/Projects/C++/Chikara/Shaders/vert.spv");
-  auto frag_shader_code = readFile("C:/Users/Kaydax/Documents/Stuff/Projects/C++/Chikara/Shaders/frag.spv");
+  auto vert_shader_code = readFile("Shaders/vert.spv");
+  auto frag_shader_code = readFile("Shaders/frag.spv");
 
   //Create the shader modules
   VkShaderModule vert_shader_module = createShaderModule(vert_shader_code);
@@ -713,7 +713,7 @@ void Renderer::createTextureImage()
 {
   //Get the image and load it
   int tex_width, tex_height, tex_chans;
-  stbi_uc* pixels = stbi_load("C:/Users/Kaydax/Documents/Stuff/Projects/C++/Chikara/Textures/texture.jpg", &tex_width, &tex_height, &tex_chans, STBI_rgb_alpha);
+  stbi_uc* pixels = stbi_load("Textures/texture.jpg", &tex_width, &tex_height, &tex_chans, STBI_rgb_alpha);
   VkDeviceSize img_size = tex_width * tex_height * 4;
 
   if(!pixels)

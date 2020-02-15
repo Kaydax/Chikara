@@ -31,6 +31,17 @@
     <ClInclude Include="Midi.h" />
     <ClInclude Include="Renderer.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="Textures\texture.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Shaders\frag.spv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Shaders\vert.spv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <ProjectGuid>{167D8B56-CEF0-47EB-A7B3-E710B9445F14}</ProjectGuid>
@@ -132,7 +143,7 @@
       </Command>
     </PostBuildEvent>
     <PreBuildEvent>
-      <Command>cd C:\Users\Kaydax\Documents\Stuff\Projects\C++\Chikara\Shaders &amp;&amp; glslc triangle.vert -o vert.spv &amp;&amp; glslc triangle.frag -o frag.spv</Command>
+      <Command>cd Shaders &amp;&amp; glslc triangle.vert -o vert.spv &amp;&amp; glslc triangle.frag -o frag.spv</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">

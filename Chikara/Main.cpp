@@ -4,11 +4,11 @@ Renderer r;
 
 void Main::run()
 {
-  //initWindow(); //Setup everything for the window
-  //initVulkan(); //Setup everything for Vulkan
-  //mainLoop(); //The main loop for the application
-  Midi m("C:/Users/Kaydax/Documents/Stuff/Midis/Pi.mid");
-  //cleanup(); //Cleanup everything because we closed the application
+  initWindow(); //Setup everything for the window
+  initVulkan(); //Setup everything for Vulkan
+  mainLoop(); //The main loop for the application
+  //Midi m("E:/Midi/tau2.5.9.mid");
+  cleanup(); //Cleanup everything because we closed the application
 }
 
 void Main::initWindow()
