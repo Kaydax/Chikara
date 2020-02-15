@@ -7,7 +7,7 @@ void Main::run()
   initWindow(); //Setup everything for the window
   initVulkan(); //Setup everything for Vulkan
   mainLoop(); //The main loop for the application
-  //Midi m("E:/Midi/tau2.5.9.mid");
+  //Midi m("E:/Midi/[Black MIDI]scarlet_zone-& The Young Descendant of Tepes V.2.mid");
   cleanup(); //Cleanup everything because we closed the application
 }
 

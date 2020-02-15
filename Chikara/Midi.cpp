@@ -35,7 +35,7 @@ Midi::Midi(const char* file_name)
         if(!track->delta_parsed) track->parseDeltaTime();
         if(time >= track->tick_time)
         {
-          track->parseEvent2ElectricBoogaloo();
+          track->parseEvent2ElectricBoogaloo(note_buffer);
         }
       }
       time++;
@@ -59,6 +59,17 @@ Midi::Midi(const char* file_name)
 
 Midi::~Midi()
 {
+  for(int i = 0; i < 256; i++)
+  {
+    list<Note*>* notes = note_buffer[i];
+    while(!notes->empty())
+    {
+      delete notes->front();
+      notes->pop_front();
+    }
+    delete notes;
+  }
+  delete note_buffer;
 }
 
 void Midi::loadMidi()
@@ -104,7 +115,7 @@ void Midi::loadMidi()
 
     for(int i = 0; i < track_count; i++)
     {
-      MidiTrack* track = new MidiTrack(&file_stream, tracks[i].start, tracks[i].length, 100000, ppq);
+      MidiTrack* track = new MidiTrack(&file_stream, tracks[i].start, tracks[i].length, 100000, i, ppq);
 
       parse_tracks[i] = track;
 
@@ -163,9 +174,15 @@ void Midi::loadMidi()
     readers = new MidiTrack * [count];
     for(int i = 0; i < count; i++)
     {
-      readers[i] = new MidiTrack(&file_stream, tracks[i].start, tracks[i].length, 100000, ppq);
+      readers[i] = new MidiTrack(&file_stream, tracks[i].start, tracks[i].length, 100000, i, ppq);
       readers[i]->global_tempo_events = tempo_array;
       readers[i]->global_tempo_event_count = tempo_count;
+    }
+
+    note_buffer = new list<Note*>*[256];
+    for(int i = 0; i < 256; i++)
+    {
+      note_buffer[i] = new list<Note*>();
     }
 
   } catch(const char* e)
@@ -278,10 +295,11 @@ void BufferedReader::updateBuffer()
 
 #pragma region Midi Track
 
-MidiTrack::MidiTrack(ifstream* _file_stream, size_t _start, size_t _length, uint32_t _buffer_size, uint16_t _ppq)
+MidiTrack::MidiTrack(ifstream* _file_stream, size_t _start, size_t _length, uint32_t _buffer_size, uint32_t _track_num, uint16_t _ppq)
 {
   reader = new BufferedReader(_file_stream, _start, _length, _buffer_size);
   ppq = _ppq;
+  track_num = _track_num;
 }
 
 MidiTrack::~MidiTrack()
@@ -307,6 +325,35 @@ void MidiTrack::parseDelta()
   } catch(const char* e)
   {
     ended = true;
+  }
+}
+
+void MidiTrack::initNoteStacks()
+{
+  note_stacks = new list<Note*> * [16 * 256];
+  for(int i = 0; i < 16 * 256; i++)
+  {
+    note_stacks[i] = new list<Note*>();
+  }
+}
+
+void MidiTrack::deleteNoteStacks()
+{
+  if(note_stacks != NULL)
+  {
+    for(int i = 0; i < 256 * 16; i++)
+    {
+      list<Note*>* stack = note_stacks[i];
+      while(!stack->empty())
+      {
+        Note* n = stack->front();
+        delete n;
+        stack->pop_front();
+      }
+      delete note_stacks[i];
+    }
+    delete[] note_stacks;
+    note_stacks == NULL;
   }
 }
 
@@ -467,7 +514,7 @@ void MidiTrack::parseEvent1()
   }
 }
 
-void MidiTrack::parseEvent2ElectricBoogaloo()
+void MidiTrack::parseEvent2ElectricBoogaloo(list<Note*>** global_notes)
 {
   if(ended)
   {
@@ -494,6 +541,17 @@ void MidiTrack::parseEvent2ElectricBoogaloo()
       {
         uint8_t key = reader->readByte();
         uint8_t vel = reader->readByteFast();
+        if(note_stacks == NULL) return;
+
+        list<Note*>* stack = note_stacks[channel * 256 + key];
+
+        if(!stack->empty())
+        {
+          Note* n = stack->front();
+          stack->pop_front();
+          n->end = time;
+        }
+
         // Note Off
         break;
       }
@@ -503,8 +561,31 @@ void MidiTrack::parseEvent2ElectricBoogaloo()
         uint8_t vel = reader->readByteFast();
         // Note On
 
-        if(vel > 0) notes_parsed++;
+        if(note_stacks == NULL) initNoteStacks();
+        list<Note*>* stack = note_stacks[channel * 256 + key];
 
+        if(vel > 0)
+        {
+
+          Note* n = new Note();
+          //n.color = sdjgkvnskjsn;
+          n->start = time;
+          n->end = -1;
+
+          stack->push_back(n);
+          global_notes[key]->push_back(n);
+
+          notes_parsed++;
+        }
+        else
+        {
+          if(!stack->empty())
+          {
+            Note* n = stack->front();
+            stack->pop_front();
+            n->end = time;
+          }
+        }
         break;
       }
       case 0xA0:
@@ -600,6 +681,10 @@ void MidiTrack::parseEvent2ElectricBoogaloo()
   {
     cout << e;
     ended = true;
+  }
+  if(ended)
+  {
+    deleteNoteStacks();
   }
 }
 

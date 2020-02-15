@@ -56,11 +56,11 @@ class BufferedReader
 class MidiTrack
 {
   public:
-    MidiTrack(ifstream* _file_stream, size_t _start, size_t _length, uint32_t _buffer_size, uint16_t _ppq);
+    MidiTrack(ifstream* _file_stream, size_t _start, size_t _length, uint32_t _buffer_size, uint32_t _track_num, uint16_t _ppq);
     ~MidiTrack();
     void parseDelta();
     void parseDeltaTime();
-    void parseEvent2ElectricBoogaloo();
+    void parseEvent2ElectricBoogaloo(list<Note*>** global_notes);
     void parseEvent1();
 
     bool ended = false;
@@ -68,18 +68,21 @@ class MidiTrack
     uint64_t tick_time = 0;
     double time = 0;
     uint32_t notes_parsed = 0;
-    list<Note>* note_stacks;
+    list<Note*>** note_stacks = NULL;
     vector<Tempo> tempo_events;
     Tempo* global_tempo_events = 0;
     double tempo_multiplier = 0;
     uint32_t global_tempo_event_count = 0;
     uint32_t global_tempo_event_index = 0;
     uint16_t ppq = 0;
+    uint32_t track_num = 0;
   private:
     int push_back = -1;
     uint8_t prev_command = 0;
     BufferedReader* reader = NULL;
 
+    void initNoteStacks();
+    void deleteNoteStacks();
     double multiplierFromTempo(uint32_t tempo, uint16_t ppq);
 };
 
@@ -89,7 +92,7 @@ class Midi
     Midi(const char* file_name);
     ~Midi();
 
-    list<Note> note_buffer;
+    list<Note*>** note_buffer;
     Tempo* tempo_array;
     uint32_t tempo_count;
   private:
