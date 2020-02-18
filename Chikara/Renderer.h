@@ -23,8 +23,11 @@
 #include <cstdint>
 #include <fstream>
 #include <array>
+using namespace std;
 
 #pragma endregion
+
+#define VERTEX_BUFFER_SIZE 2048
 
 const int width = 800;
 const int height = 600;
@@ -113,35 +116,20 @@ struct UniformBufferObject
 #pragma endregion
 
 const std::vector<Vertex> vertices = {
-  {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}}, //0
+  {{-1.0f, -1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}}, //0
   {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}}, //1
   {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}}, //2
   {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}, //3
 
-  {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}}, //4
-  {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}}, //5
-  {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}}, //6
-  {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}} //7
+  {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+  {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+  {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+  {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
 };
 
 const std::vector<uint16_t> indices = {
-  //Top
-  0, 1, 2,
-  2, 3, 0,
-    
-  //Bottom
-  6, 5, 4, 
-  4, 7, 6,
-
-  //Side 1
-  0, 4, 5,
-  5, 1, 0,
-
-  5, 6, 2,
-  2, 1, 5,
-
-  6, 7, 3,
-  3, 2, 6
+  0, 1, 2, 2, 3, 0,
+  4, 5, 6, 6, 7, 4
 };
 
 class Renderer

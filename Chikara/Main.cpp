@@ -4,10 +4,10 @@ Renderer r;
 
 void Main::run()
 {
+  Midi m("C:/Users/Kaydax/Documents/Stuff/Midis/pe_vsfrontierbrain.mid");
   initWindow(); //Setup everything for the window
   initVulkan(); //Setup everything for Vulkan
   mainLoop(); //The main loop for the application
-  //Midi m("E:/Midi/[Black MIDI]scarlet_zone-& The Young Descendant of Tepes V.2.mid");
   cleanup(); //Cleanup everything because we closed the application
 }
 
@@ -47,12 +47,27 @@ void Main::initVulkan()
   r.createSyncObjects();
 }
 
+auto timer = chrono::steady_clock();
+auto last_time = timer.now();
+uint64_t frame_counter = 0;
+uint64_t fps = 0;
+
 void Main::mainLoop()
 {
   while(!glfwWindowShouldClose(r.window))
   {
     glfwPollEvents();
     r.drawFrame();
+
+    //Output fps
+    ++frame_counter;
+    if(last_time + chrono::seconds(1) < timer.now())
+    {
+      last_time = timer.now();
+      fps = frame_counter;
+      frame_counter = 0;
+      cout << fps << " fps\n";
+    }
   }
 
   vkDeviceWaitIdle(r.device);

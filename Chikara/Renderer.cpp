@@ -3,6 +3,7 @@
 
 #include "Renderer.h"
 #include "Main.h"
+#include "Midi.h"
 
 Main m;
 
@@ -535,7 +536,7 @@ void Renderer::createGraphicsPipeline()
   rasterizer.rasterizerDiscardEnable = VK_FALSE; //If true, geometry never passes through the rasterizer stage, basically disabling any output to the framebuffer
   rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
   rasterizer.lineWidth = 1.0f; //Thickness of lines in terms of number of fragments
-  rasterizer.cullMode = VK_CULL_MODE_BACK_BIT; //Face culling
+  rasterizer.cullMode = VK_CULL_MODE_NONE; //Face culling
   rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; //Vertex order for the front faces
   rasterizer.depthBiasEnable = VK_FALSE;
   rasterizer.depthBiasConstantFactor = 0.0f; // Optional
@@ -878,28 +879,30 @@ void Renderer::transitionImageLayout(VkImage img, VkFormat format, VkImageLayout
 
 void Renderer::createVertexBuffer()
 {
-  VkDeviceSize buffer_size = sizeof(vertices[0]) * vertices.size();
+  VkDeviceSize buffer_size = sizeof(vertices[0]) * VERTEX_BUFFER_SIZE * 4;
 
-  VkBuffer staging_buffer;
-  VkDeviceMemory staging_buffer_mem;
+  //VkBuffer staging_buffer;
+  //VkDeviceMemory staging_buffer_mem;
 
-  createBuffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging_buffer, staging_buffer_mem);
+  //createBuffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging_buffer, staging_buffer_mem);
 
-  void* data;
-  vkMapMemory(device, staging_buffer_mem, 0, buffer_size, 0, &data);
-  memcpy(data, vertices.data(), (size_t)buffer_size);
-  vkUnmapMemory(device, staging_buffer_mem);
+  //void* data;
+  //vkMapMemory(device, staging_buffer_mem, 0, buffer_size, 0, &data);
+  //memcpy(data, vertices.data(), (size_t)buffer_size);
+  //vkUnmapMemory(device, staging_buffer_mem);
 
-  createBuffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertex_buffer, vertex_buffer_mem);
-  copyBuffer(staging_buffer, vertex_buffer, buffer_size);
+  //createBuffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertex_buffer, vertex_buffer_mem);
+  createBuffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, vertex_buffer, vertex_buffer_mem);
+  //copyBuffer(staging_buffer, vertex_buffer, buffer_size);
 
-  vkDestroyBuffer(device, staging_buffer, nullptr);
-  vkFreeMemory(device, staging_buffer_mem, nullptr);
+  //vkDestroyBuffer(device, staging_buffer, nullptr);
+  //vkFreeMemory(device, staging_buffer_mem, nullptr);
 }
 
 void Renderer::createIndexBuffer()
 {
-  VkDeviceSize buffer_size = sizeof(indices[0]) * indices.size();
+  uint32_t buffer_len = VERTEX_BUFFER_SIZE * 6;
+  VkDeviceSize buffer_size = sizeof(indices[0]) * buffer_len;
 
   VkBuffer staging_buffer;
   VkDeviceMemory staging_buffer_mem;
@@ -908,7 +911,17 @@ void Renderer::createIndexBuffer()
 
   void* data;
   vkMapMemory(device, staging_buffer_mem, 0, buffer_size, 0, &data);
-  memcpy(data, indices.data(), (size_t)buffer_size);
+  //memcpy(data, indices.data(), (size_t)buffer_size);
+  uint32_t* data_int = (uint32_t*)data;
+  for(int i = 0; i < buffer_len / 6; i++)
+  {
+    data_int[i * 6 + 0] = i * 4 + 0;
+    data_int[i * 6 + 1] = i * 4 + 1;
+    data_int[i * 6 + 2] = i * 4 + 3;
+    data_int[i * 6 + 3] = i * 4 + 1;
+    data_int[i * 6 + 4] = i * 4 + 3;
+    data_int[i * 6 + 5] = i * 4 + 2;
+  }
   vkUnmapMemory(device, staging_buffer_mem);
 
   createBuffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, index_buffer, index_buffer_mem);
@@ -1096,6 +1109,15 @@ void Renderer::drawFrame()
 
   //Update the Uniform Buffer
   updateUniformBuffer(img_index);
+
+  VkDeviceSize buffer_size = sizeof(vertices[0]) * VERTEX_BUFFER_SIZE * 4;
+    void* data;
+  vkMapMemory(device, vertex_buffer_mem, 0, buffer_size, 0, &data);
+  uint32_t* data_int = (uint32_t*)data;
+
+
+
+  vkUnmapMemory(device, vertex_buffer_mem);
 
   //Submit to the command buffer
   VkSubmitInfo submit_info = {};
