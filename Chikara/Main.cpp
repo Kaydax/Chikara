@@ -4,7 +4,7 @@ Renderer r;
 
 void Main::run()
 {
-  Midi m("C:/Users/Kaydax/Documents/Stuff/Midis/pe_vsfrontierbrain.mid");
+  //Midi m("C:/Users/Kaydax/Documents/Stuff/Midis/pe_vsfrontierbrain.mid");
   initWindow(); //Setup everything for the window
   initVulkan(); //Setup everything for Vulkan
   mainLoop(); //The main loop for the application

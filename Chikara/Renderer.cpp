@@ -892,17 +892,24 @@ void Renderer::createVertexBuffer()
   //vkUnmapMemory(device, staging_buffer_mem);
 
   //createBuffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertex_buffer, vertex_buffer_mem);
-  createBuffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, vertex_buffer, vertex_buffer_mem);
   //copyBuffer(staging_buffer, vertex_buffer, buffer_size);
 
   //vkDestroyBuffer(device, staging_buffer, nullptr);
   //vkFreeMemory(device, staging_buffer_mem, nullptr);
+
+
+  createBuffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, vertex_buffer, vertex_buffer_mem);
+
+  void* data;
+  vkMapMemory(device, vertex_buffer_mem, 0, buffer_size, 0, &data);
+  memcpy(data, vertices.data(), (size_t)buffer_size);
+  vkUnmapMemory(device, vertex_buffer_mem);
 }
 
 void Renderer::createIndexBuffer()
 {
   uint32_t buffer_len = VERTEX_BUFFER_SIZE * 6;
-  VkDeviceSize buffer_size = sizeof(indices[0]) * buffer_len;
+  VkDeviceSize buffer_size = sizeof(uint16_t) * buffer_len;
 
   VkBuffer staging_buffer;
   VkDeviceMemory staging_buffer_mem;
@@ -912,15 +919,15 @@ void Renderer::createIndexBuffer()
   void* data;
   vkMapMemory(device, staging_buffer_mem, 0, buffer_size, 0, &data);
   //memcpy(data, indices.data(), (size_t)buffer_size);
-  uint32_t* data_int = (uint32_t*)data;
+  uint16_t* data_int = (uint16_t*)data;
   for(int i = 0; i < buffer_len / 6; i++)
   {
     data_int[i * 6 + 0] = i * 4 + 0;
     data_int[i * 6 + 1] = i * 4 + 1;
-    data_int[i * 6 + 2] = i * 4 + 3;
-    data_int[i * 6 + 3] = i * 4 + 1;
+    data_int[i * 6 + 2] = i * 4 + 2;
+    data_int[i * 6 + 3] = i * 4 + 2;
     data_int[i * 6 + 4] = i * 4 + 3;
-    data_int[i * 6 + 5] = i * 4 + 2;
+    data_int[i * 6 + 5] = i * 4 + 0;
   }
   vkUnmapMemory(device, staging_buffer_mem);
 
@@ -1111,12 +1118,14 @@ void Renderer::drawFrame()
   updateUniformBuffer(img_index);
 
   VkDeviceSize buffer_size = sizeof(vertices[0]) * VERTEX_BUFFER_SIZE * 4;
-    void* data;
+  void* data;
   vkMapMemory(device, vertex_buffer_mem, 0, buffer_size, 0, &data);
-  uint32_t* data_int = (uint32_t*)data;
 
+  Vertex* data_v = (Vertex*)data;
+  data_v[0].tex_coord.x += 0.0001;
+  data_v[0].pos.x += 0.0001;
 
-
+  //memcpy(data, vertices.data(), (size_t)buffer_size);
   vkUnmapMemory(device, vertex_buffer_mem);
 
   //Submit to the command buffer
@@ -1179,13 +1188,20 @@ void Renderer::updateUniformBuffer(uint32_t current_img)
 
   //Now lets rotate the model around the Z-axis based on the time. This will rotate 90 degrees per second
   UniformBufferObject ubo = {};
-  ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  //ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  ubo.model = glm::identity<glm::mat4>();
 
   //Now lets look at the model from a 45 degree angle
-  ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  //ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  ubo.view = glm::identity<glm::mat4>();
 
   //A perspective projection with a 45 degree FOV
-  ubo.proj = glm::perspective(glm::radians(45.0f), swap_chain_extent.width / (float)swap_chain_extent.height, 0.1f, 10.0f);
+  //ubo.proj = glm::perspective(glm::radians(45.0f), swap_chain_extent.width / (float)swap_chain_extent.height, 0.1f, 10.0f);
+  //ubo.proj = glm::identity<glm::mat4>();
+  ubo.proj = glm::identity<glm::mat4>();
+  ubo.proj = glm::translate(ubo.proj, glm::vec3(-1, -1, 0));
+  ubo.proj = glm::scale(ubo.proj, glm::vec3(2, 2, -1));
+  ubo.proj = glm::translate(ubo.proj, glm::vec3(0, 1, 0));
 
   //Now lets flip the Y coordinates because of the fact GLM was created for OpenGL
   ubo.proj[1][1] *= -1;
