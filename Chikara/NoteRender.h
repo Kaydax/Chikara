@@ -44,5 +44,9 @@ private:
   VkBuffer index_buffer;
   VkDeviceMemory index_buffer_mem;
   VkCommandBuffer* command_buffers;
+  VkSemaphore* keySemaphores;
+
+  uint32_t getVertexBuffer(uint32_t thread, uint32_t b);
+  uint32_t getCommandBuffer(uint32_t thread, uint32_t b);
 };
 

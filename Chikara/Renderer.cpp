@@ -1075,7 +1075,11 @@ void Renderer::createSyncObjects()
 
   for(size_t i = 0; i < max_frames_in_flight; i++)
   {
-    if(vkCreateSemaphore(device, &semaphore_info, nullptr, &img_available_semaphore[i]) != VK_SUCCESS || vkCreateSemaphore(device, &semaphore_info, nullptr, &render_fin_semaphore[i]) != VK_SUCCESS || vkCreateFence(device, &fence_info, nullptr, &in_flight_fences[i]) != VK_SUCCESS)
+    if(
+      vkCreateSemaphore(device, &semaphore_info, nullptr, &img_available_semaphore[i]) != VK_SUCCESS || 
+      vkCreateSemaphore(device, &semaphore_info, nullptr, &render_fin_semaphore[i]) != VK_SUCCESS || 
+      vkCreateFence(device, &fence_info, nullptr, &in_flight_fences[i]) != VK_SUCCESS
+    )
     {
 
       throw std::runtime_error("VKERR: Failed to create synchronization objects for a frame!");

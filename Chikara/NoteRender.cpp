@@ -120,6 +120,28 @@ void NoteRender::generateWorkflow()
       }
     }
   }
+
+  VkSemaphoreCreateInfo semaphore_info = {};
+  semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+  keySemaphores = new VkSemaphore[256];
+  for(int i = 0; i < 256; i++)
+  {
+    if(vkCreateSemaphore(parent->device, &semaphore_info, nullptr, &keySemaphores[i]) != VK_SUCCESS)
+    {
+      throw std::runtime_error("VKERR: Failed to create synchronization objects for a frame!");
+    }
+  }
+}
+
+uint32_t NoteRender::getVertexBuffer(uint32_t thread, uint32_t b)
+{
+  return thread * BUFFERS_PER_THREAD + b;
+}
+
+uint32_t NoteRender::getCommandBuffer(uint32_t thread, uint32_t b)
+{
+  return getVertexBuffer(thread, b) + parent->current_frame_index * BUFFERS_PER_THREAD * thread_count;
 }
 
 void NoteRender::renderFrame(list<Note*>** note_buffer)
@@ -131,6 +153,31 @@ void NoteRender::renderFrame(list<Note*>** note_buffer)
   uint32_t framebufferCount = (uint32_t)parent->swap_chain_framebuffers.size();
   uint32_t commandCount = bufferCount * framebufferCount;
 
+  for(int key = 0; key < 256; key++)
+  {
+    list<Note*>* notes = note_buffer[key];
+    int n = 0;
+    uint32_t b = 0;
+
+    uint32_t vb = getVertexBuffer(0, b);
+    VkDeviceMemory vertex_buffer_mem = vertex_buffers_mem[vb];
+    VkBuffer vertex_buffer = vertex_buffers[vb];
+    VkCommandBuffer cmdBuffer = command_buffers[getCommandBuffer(0, b)];
+
+    void* data;
+    vkMapMemory(parent->device, vertex_buffer_mem, 0, buffer_size, 0, &data);
+
+    Vertex* data_v = (Vertex*)data;
+
+    for(auto const& i : *notes)
+    {
+      if(n >= BUFFER_CAPACITY)
+      {
+
+      }
+      n++;
+    }
+  }
 
   VkDeviceMemory vertex_buffer_mem = vertex_buffers_mem[0];
   VkBuffer vertex_buffer = vertex_buffers[0];
