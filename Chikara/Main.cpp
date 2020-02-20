@@ -1,12 +1,16 @@
 #include "Main.h"
 
 Renderer r;
+NoteRender* nr;
+Midi* midi;
 
 void Main::run()
 {
-  //Midi m("C:/Users/Kaydax/Documents/Stuff/Midis/pe_vsfrontierbrain.mid");
+  midi = new Midi("E:/Midi/Clubstep.mid");
   initWindow(); //Setup everything for the window
   initVulkan(); //Setup everything for Vulkan
+  nr = new NoteRender(&r, 8);
+  nr->generateWorkflow();
   mainLoop(); //The main loop for the application
   cleanup(); //Cleanup everything because we closed the application
 }
@@ -57,7 +61,10 @@ void Main::mainLoop()
   while(!glfwWindowShouldClose(r.window))
   {
     glfwPollEvents();
-    r.drawFrame();
+    r.startDrawFrame();
+    //r.drawFrame();
+    nr->renderFrame(midi->note_buffer);
+    r.endDrawFrame();
 
     //Output fps
     ++frame_counter;

@@ -1,5 +1,6 @@
 #include "Renderer.h"
 #include "Midi.h"
+#include "NoteRender.h"
 
 class Main
 {
