@@ -170,7 +170,11 @@ class Renderer
     std::vector<VkFence> imgs_in_flight;
     size_t current_frame = 0;
 
+    std::vector<VkSemaphore> next_step_semaphores;
+
     bool framebuffer_resized = false;
+
+    uint32_t current_frame_index;
 
     void createInstance();
     void createSurface();
@@ -195,11 +199,15 @@ class Renderer
     void createCommandBuffers();
     void createSyncObjects();
     void drawFrame();
+
+    void startDrawFrame(); 
+    void endDrawFrame(); 
+
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
-  private:
-    void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& img, VkDeviceMemory& img_mem);
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& buffer_mem);
     void copyBuffer(VkBuffer src_buffer, VkBuffer dst_buffer, VkDeviceSize size);
+  private:
+    void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& img, VkDeviceMemory& img_mem);
     void updateUniformBuffer(uint32_t current_img);
     void endSingleTimeCommands(VkCommandBuffer cmd_buffer);
     void transitionImageLayout(VkImage img, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout);

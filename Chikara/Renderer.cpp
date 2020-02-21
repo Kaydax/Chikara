@@ -902,14 +902,14 @@ void Renderer::createVertexBuffer()
 
   void* data;
   vkMapMemory(device, vertex_buffer_mem, 0, buffer_size, 0, &data);
-  memcpy(data, vertices.data(), (size_t)buffer_size);
+  //memcpy(data, vertices.data(), (size_t)buffer_size);
   vkUnmapMemory(device, vertex_buffer_mem);
 }
 
 void Renderer::createIndexBuffer()
 {
   uint32_t buffer_len = VERTEX_BUFFER_SIZE * 6;
-  VkDeviceSize buffer_size = sizeof(uint16_t) * buffer_len;
+  VkDeviceSize buffer_size = sizeof(uint32_t) * buffer_len;
 
   VkBuffer staging_buffer;
   VkDeviceMemory staging_buffer_mem;
@@ -1044,7 +1044,7 @@ void Renderer::createCommandBuffers()
     vkCmdBindIndexBuffer(cmd_buffers[i], index_buffer, 0, VK_INDEX_TYPE_UINT32);
     vkCmdBindDescriptorSets(cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pl_layout, 0, 1, &descriptor_sets[i], 0, nullptr);
 
-    vkCmdDrawIndexed(cmd_buffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+    vkCmdDrawIndexed(cmd_buffers[i], (uint32_t)(VERTEX_BUFFER_SIZE * 6), 1, 0, 0, 0);
 
     vkCmdEndRenderPass(cmd_buffers[i]);
 
@@ -1075,7 +1075,11 @@ void Renderer::createSyncObjects()
 
   for(size_t i = 0; i < max_frames_in_flight; i++)
   {
-    if(vkCreateSemaphore(device, &semaphore_info, nullptr, &img_available_semaphore[i]) != VK_SUCCESS || vkCreateSemaphore(device, &semaphore_info, nullptr, &render_fin_semaphore[i]) != VK_SUCCESS || vkCreateFence(device, &fence_info, nullptr, &in_flight_fences[i]) != VK_SUCCESS)
+    if(
+      vkCreateSemaphore(device, &semaphore_info, nullptr, &img_available_semaphore[i]) != VK_SUCCESS || 
+      vkCreateSemaphore(device, &semaphore_info, nullptr, &render_fin_semaphore[i]) != VK_SUCCESS || 
+      vkCreateFence(device, &fence_info, nullptr, &in_flight_fences[i]) != VK_SUCCESS
+    )
     {
 
       throw std::runtime_error("VKERR: Failed to create synchronization objects for a frame!");
@@ -1087,13 +1091,12 @@ void Renderer::createSyncObjects()
 
 #pragma region Drawing
 
-void Renderer::drawFrame()
+void Renderer::startDrawFrame()
 {
   vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
   vkResetFences(device, 1, &in_flight_fences[current_frame]);
 
-  uint32_t img_index;
-  VkResult result = vkAcquireNextImageKHR(device, swap_chain, UINT64_MAX, img_available_semaphore[current_frame], VK_NULL_HANDLE, &img_index);
+  VkResult result = vkAcquireNextImageKHR(device, swap_chain, UINT64_MAX, img_available_semaphore[current_frame], VK_NULL_HANDLE, &current_frame_index);
 
   if(result == VK_ERROR_OUT_OF_DATE_KHR)
   {
@@ -1106,22 +1109,29 @@ void Renderer::drawFrame()
   }
 
   //Check if a previous frame is using this image (i.e. there is its fence to wait on)
-  if(imgs_in_flight[img_index] != VK_NULL_HANDLE)
+  if(imgs_in_flight[current_frame_index] != VK_NULL_HANDLE)
   {
-    vkWaitForFences(device, 1, &imgs_in_flight[img_index], VK_TRUE, UINT64_MAX);
+    vkWaitForFences(device, 1, &imgs_in_flight[current_frame_index], VK_TRUE, UINT64_MAX);
   }
 
   //Mark the image as now being in use by this frame
-  imgs_in_flight[img_index] = imgs_in_flight[current_frame];
+  imgs_in_flight[current_frame_index] = imgs_in_flight[current_frame];
 
   //Update the Uniform Buffer
-  updateUniformBuffer(img_index);
+  updateUniformBuffer(current_frame_index);
+}
 
-  VkDeviceSize buffer_size = sizeof(vertices[0]) * VERTEX_BUFFER_SIZE * 4;
+void Renderer::drawFrame()
+{
+  VkDeviceSize buffer_size = sizeof(Vertex) * VERTEX_BUFFER_SIZE * 4;
   void* data;
   vkMapMemory(device, vertex_buffer_mem, 0, buffer_size, 0, &data);
 
   Vertex* data_v = (Vertex*)data;
+  data_v[0] = { {0,0},{1,1,1},{0,1} };
+  data_v[1] = { {1,0},{1,1,1},{1,1} };
+  data_v[2] = { {1,1},{1,1,1},{1,0} };
+  data_v[3] = { {0,1},{1,1,1},{0,0} };
 
   //memcpy(data, vertices.data(), (size_t)buffer_size);
   vkUnmapMemory(device, vertex_buffer_mem);
@@ -1136,11 +1146,12 @@ void Renderer::drawFrame()
   submit_info.pWaitSemaphores = wait_semaphores;
   submit_info.pWaitDstStageMask = wait_stages;
   submit_info.commandBufferCount = 1;
-  submit_info.pCommandBuffers = &cmd_buffers[img_index];
+  submit_info.pCommandBuffers = &cmd_buffers[current_frame_index];
 
-  VkSemaphore signal_semaphores[] = { render_fin_semaphore[current_frame] }; //What semaphores we signal once the cmd buffer finished execution
-  submit_info.signalSemaphoreCount = 1;
-  submit_info.pSignalSemaphores = signal_semaphores;
+  next_step_semaphores.clear();
+  next_step_semaphores.push_back(render_fin_semaphore[current_frame]);
+  submit_info.signalSemaphoreCount = next_step_semaphores.size();
+  submit_info.pSignalSemaphores = next_step_semaphores.data();
 
   vkResetFences(device, 1, &in_flight_fences[current_frame]);
 
@@ -1148,20 +1159,23 @@ void Renderer::drawFrame()
   {
     throw std::runtime_error("VKERR: Failed to submit draw to command buffer!");
   }
+}
 
+void Renderer::endDrawFrame()
+{
   //Presentation
   VkPresentInfoKHR present_info = {};
   present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-  present_info.waitSemaphoreCount = 1;
-  present_info.pWaitSemaphores = signal_semaphores;
+  present_info.waitSemaphoreCount = next_step_semaphores.size();
+  present_info.pWaitSemaphores = next_step_semaphores.data();
 
   VkSwapchainKHR swap_chains[] = { swap_chain }; //An array of all our swap chains
   present_info.swapchainCount = 1;
   present_info.pSwapchains = swap_chains;
-  present_info.pImageIndices = &img_index;
+  present_info.pImageIndices = &current_frame_index;
   present_info.pResults = nullptr; // Optional
 
-  result = vkQueuePresentKHR(present_queue, &present_info);
+  VkResult result = vkQueuePresentKHR(present_queue, &present_info);
 
   if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebuffer_resized)
   {
