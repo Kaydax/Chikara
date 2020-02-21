@@ -6,6 +6,9 @@
 #include <fstream>
 #include <string>
 #include <list>
+#include <ppl.h>
+#include <mutex>
+#include <shared_mutex>
 using namespace std;
 
 struct MidiChunk
@@ -35,7 +38,7 @@ struct Tempo
 class BufferedReader
 {
   public:
-    BufferedReader(ifstream* _file_stream, size_t _start, size_t _length, uint32_t _buffer_size);
+    BufferedReader(ifstream* _file_stream, size_t _start, size_t _length, uint32_t _buffer_size, std::mutex* _mtx);
     ~BufferedReader();
     uint8_t readByte();
     uint8_t readByteFast();
@@ -51,12 +54,13 @@ class BufferedReader
     uint8_t* buffer;
     uint32_t buffer_size;
     uint32_t buffer_pos = 0;
+    std::mutex* mtx;
 };
 
 class MidiTrack
 {
   public:
-    MidiTrack(ifstream* _file_stream, size_t _start, size_t _length, uint32_t _buffer_size, uint32_t _track_num, uint16_t _ppq);
+    MidiTrack(ifstream* _file_stream, size_t _start, size_t _length, uint32_t _buffer_size, uint32_t _track_num, uint16_t _ppq, std::mutex* _mtx);
     ~MidiTrack();
     void parseDelta();
     void parseDeltaTime();
@@ -109,4 +113,5 @@ class Midi
     uint16_t format;
     uint16_t ppq;
     uint32_t track_count;
+    std::mutex mtx;
 };

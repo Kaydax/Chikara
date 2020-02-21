@@ -4,11 +4,11 @@ Renderer r;
 
 void Main::run()
 {
-  //Midi m("C:/Users/Kaydax/Documents/Stuff/Midis/pe_vsfrontierbrain.mid");
-  initWindow(); //Setup everything for the window
-  initVulkan(); //Setup everything for Vulkan
-  mainLoop(); //The main loop for the application
-  cleanup(); //Cleanup everything because we closed the application
+  Midi m("C:/Users/Kaydax/Documents/Stuff/Midis/[Black MIDI]scarlet_zone-& The Young Descendant of Tepes V.2.mid");
+  //initWindow(); //Setup everything for the window
+  //initVulkan(); //Setup everything for Vulkan
+  //mainLoop(); //The main loop for the application
+  //cleanup(); //Cleanup everything because we closed the application
 }
 
 void Main::initWindow()

@@ -1,5 +1,6 @@
 #include "Midi.h"
 
+
 #pragma region Midi Class
 
 Midi::Midi(const char* file_name)
@@ -10,7 +11,8 @@ Midi::Midi(const char* file_name)
   file_end = file_stream.tellg();
   file_stream.seekg(0, ios::beg);
 
-  loadMidi(); //Load the file
+  //Load the file
+  loadMidi();
 
   try
   {
@@ -42,18 +44,18 @@ Midi::Midi(const char* file_name)
       if(all_ended) break;
     }
 
-    cout << "Finished parsing\n";
-    cout << "Seconds length: " << seconds << "\n";
+    std::cout << "Finished parsing\n";
+    std::cout << "Seconds length: " << seconds << "\n";
     uint64_t notes = 0;
     for(int i = 0; i < track_count; i++)
     {
       notes += readers[i]->notes_parsed;
     }
-    cout << "Notes parsed: " << notes;
+    std::cout << "Notes parsed: " << notes;
 
   } catch(const char* e)
   {
-    cout << e;
+    std::cout << e;
   }
 }
 
@@ -110,10 +112,32 @@ void Midi::loadMidi()
     //Parse all the tracks and the note cout for each track
     uint64_t nc = 0;
     uint32_t tc = 0;
+    uint32_t tn = 0;
 
     MidiTrack** parse_tracks = new MidiTrack * [track_count];
 
-    for(int i = 0; i < track_count; i++)
+    concurrency::parallel_for(uint32_t(0), track_count, [&](uint32_t i)
+    {
+      MidiTrack* track = new MidiTrack(&file_stream, tracks[i].start, tracks[i].length, 100000, i, ppq, &mtx);
+
+      parse_tracks[i] = track;
+
+      while(!track->ended)
+      {
+        track->parseDelta();
+        track->parseEvent1();
+      }
+
+      mtx.lock();
+      tc += track->tempo_events.size();
+      tn++;
+
+      std::cout << "\nParsed track " << tn << " note count " << track->notes_parsed;
+      nc += (uint64_t)track->notes_parsed;
+      mtx.unlock();
+    });
+
+    /*for(int i = 0; i < track_count; i++)
     {
       MidiTrack* track = new MidiTrack(&file_stream, tracks[i].start, tracks[i].length, 100000, i, ppq);
 
@@ -127,12 +151,12 @@ void Midi::loadMidi()
 
       tc += track->tempo_events.size();
 
-      cout << "\nParsed track " << i << " note count " << track->notes_parsed;
+      std::cout << "\nParsed track " << i << " note count " << track->notes_parsed;
       nc += (uint64_t)track->notes_parsed;
-    }
+    }*/
 
-    cout << "\nTotal tempo events: " << tc;
-    cout << "\nTotal notes: " << nc << endl;
+    std::cout << "\nTotal tempo events: " << tc;
+    std::cout << "\nTotal notes: " << nc << endl;
 
     tempo_array = new Tempo[tc];
     tempo_count = tc;
@@ -159,7 +183,7 @@ void Midi::loadMidi()
       }
       if(min == -1)
       {
-        cout << "Broke\n";
+        std::cout << "Broke\n";
         break;
       }
       tempo_array[t++] = parse_tracks[min]->tempo_events[track_tempo_index[min]];
@@ -174,12 +198,12 @@ void Midi::loadMidi()
     readers = new MidiTrack * [count];
     for(int i = 0; i < count; i++)
     {
-      readers[i] = new MidiTrack(&file_stream, tracks[i].start, tracks[i].length, 100000, i, ppq);
+      readers[i] = new MidiTrack(&file_stream, tracks[i].start, tracks[i].length, 100000, i, ppq, &mtx);
       readers[i]->global_tempo_events = tempo_array;
       readers[i]->global_tempo_event_count = tempo_count;
     }
 
-    note_buffer = new list<Note*>*[256];
+    note_buffer = new list<Note*> * [256];
     for(int i = 0; i < 256; i++)
     {
       note_buffer[i] = new list<Note*>();
@@ -187,7 +211,7 @@ void Midi::loadMidi()
 
   } catch(const char* e)
   {
-    cout << "\n" << e;
+    std::cout << "\n" << e;
   }
 }
 
@@ -236,13 +260,14 @@ uint32_t Midi::parseInt()
 
 #pragma region BufferedReader class
 
-BufferedReader::BufferedReader(ifstream* _file_stream, size_t _start, size_t _length, uint32_t _buffer_size)
+BufferedReader::BufferedReader(ifstream* _file_stream, size_t _start, size_t _length, uint32_t _buffer_size, std::mutex* _mtx)
 {
   file_stream = _file_stream;
   start = _start;
   length = _length;
   buffer_size = _buffer_size;
   pos = start;
+  mtx = _mtx;
 
   if(buffer_size > length) buffer_size = (uint32_t)length;
 
@@ -285,19 +310,21 @@ void BufferedReader::updateBuffer()
   if((pos + read) > (start + length)) read = start + length - pos;
 
   if(read == 0) throw "\nOutside the buffer";
-
+  
+  mtx->lock();
   file_stream->seekg(pos, ios::beg);
   file_stream->read((char*)buffer, read);
   pos += read;
+  mtx->unlock();
 }
 
 #pragma endregion
 
 #pragma region Midi Track
 
-MidiTrack::MidiTrack(ifstream* _file_stream, size_t _start, size_t _length, uint32_t _buffer_size, uint32_t _track_num, uint16_t _ppq)
+MidiTrack::MidiTrack(ifstream* _file_stream, size_t _start, size_t _length, uint32_t _buffer_size, uint32_t _track_num, uint16_t _ppq, std::mutex* _mtx)
 {
-  reader = new BufferedReader(_file_stream, _start, _length, _buffer_size);
+  reader = new BufferedReader(_file_stream, _start, _length, _buffer_size, _mtx);
   ppq = _ppq;
   track_num = _track_num;
 }
@@ -509,7 +536,7 @@ void MidiTrack::parseEvent1()
     }
   } catch(const char* e)
   {
-    cout << e;
+    std::cout << e;
     ended = true;
   }
 }
@@ -679,7 +706,7 @@ void MidiTrack::parseEvent2ElectricBoogaloo(list<Note*>** global_notes)
     }
   } catch(const char* e)
   {
-    cout << e;
+    std::cout << e;
     ended = true;
   }
   if(ended)
