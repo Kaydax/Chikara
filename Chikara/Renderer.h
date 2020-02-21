@@ -43,7 +43,7 @@ const std::vector<const char*> device_exts = {
 };
 
 #ifdef NDEBUG
-const bool enableValidationLayers = false;
+const bool enable_validation_layers = false;
 #else
 const bool enable_validation_layers = true;
 #endif
