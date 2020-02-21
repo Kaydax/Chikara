@@ -76,6 +76,7 @@ void NoteRender::generateWorkflow()
     {
       VkCommandBufferBeginInfo begin_info = {};
       begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+      begin_info.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
 
       VkCommandBuffer cmdBuffer = command_buffers[j * bufferCount + i];
 
@@ -124,8 +125,8 @@ void NoteRender::generateWorkflow()
   VkSemaphoreCreateInfo semaphore_info = {};
   semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-  keySemaphores = new VkSemaphore[256];
-  for(int i = 0; i < 256; i++)
+  keySemaphores = new VkSemaphore[bufferCount];
+  for(int i = 0; i < bufferCount; i++)
   {
     if(vkCreateSemaphore(parent->device, &semaphore_info, nullptr, &keySemaphores[i]) != VK_SUCCESS)
     {
@@ -136,16 +137,18 @@ void NoteRender::generateWorkflow()
 
 uint32_t NoteRender::getVertexBuffer(uint32_t thread, uint32_t b)
 {
-  return thread * BUFFERS_PER_THREAD + b;
+  return thread * BUFFERS_PER_THREAD + (b % BUFFERS_PER_THREAD);
 }
 
 uint32_t NoteRender::getCommandBuffer(uint32_t thread, uint32_t b)
 {
-  return getVertexBuffer(thread, b) + parent->current_frame_index * BUFFERS_PER_THREAD * thread_count;
+  return getVertexBuffer(thread, (b % BUFFERS_PER_THREAD)) + parent->current_frame_index * BUFFERS_PER_THREAD * thread_count;
 }
 
 void NoteRender::renderFrame(list<Note*>** note_buffer)
 {
+  vkResetFences(parent->device, 1, &parent->in_flight_fences[parent->current_frame]);
+
   VkDeviceSize buffer_size = sizeof(Vertex) * BUFFER_CAPACITY * 4;
   VkDeviceSize indicies_size = sizeof(Vertex) * BUFFER_CAPACITY * 6;
 
@@ -153,68 +156,127 @@ void NoteRender::renderFrame(list<Note*>** note_buffer)
   uint32_t framebufferCount = (uint32_t)parent->swap_chain_framebuffers.size();
   uint32_t commandCount = bufferCount * framebufferCount;
 
+  VkSemaphore* lastSemaphores = new VkSemaphore[thread_count];
+  for(int i = 0; i < thread_count; i++) lastSemaphores[i] = VK_NULL_HANDLE;
+
+  VkSemaphore* lastsmf = &parent->img_available_semaphore[parent->current_frame];
+
   for(int key = 0; key < 256; key++)
   {
+    uint32_t threadId = key % thread_count;
     list<Note*>* notes = note_buffer[key];
     int n = 0;
     uint32_t b = 0;
 
-    uint32_t vb = getVertexBuffer(0, b);
+    uint32_t vb = getVertexBuffer(threadId, b);
     VkDeviceMemory vertex_buffer_mem = vertex_buffers_mem[vb];
     VkBuffer vertex_buffer = vertex_buffers[vb];
-    VkCommandBuffer cmdBuffer = command_buffers[getCommandBuffer(0, b)];
+    VkCommandBuffer cmdBuffer = command_buffers[getCommandBuffer(threadId, b)];
 
     void* data;
     vkMapMemory(parent->device, vertex_buffer_mem, 0, buffer_size, 0, &data);
 
     Vertex* data_v = (Vertex*)data;
 
-    for(auto const& i : *notes)
-    {
-      if(n >= BUFFER_CAPACITY)
-      {
+    data_v[0] = { {0,0},{1,1,1},{0,1} };
+    data_v[1] = { {1,0},{1,1,1},{1,1} };
+    data_v[2] = { {1,1},{1,1,1},{1,0} };
+    data_v[3] = { {0,1},{1,1,1},{0,0} };
 
-      }
-      n++;
-    }
+    //for(auto const& i : *notes)
+    //{
+    //  if(n >= BUFFER_CAPACITY)
+    //  {
+    //    vkUnmapMemory(parent->device, vertex_buffer_mem);
+
+    //    //Submit to the command buffer
+    //    VkSubmitInfo submit_info = {};
+    //    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+
+    //    //VkSemaphore wait_semaphores[] = { parent->img_available_semaphore[parent->current_frame] }; //The semaphores we are waiting for
+    //    submit_info.pWaitSemaphores = lastsmf;
+    //    submit_info.waitSemaphoreCount = 1;
+    //    VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT }; //Wait with writing colors until the image is available
+    //    submit_info.pWaitDstStageMask = wait_stages;
+    //    submit_info.commandBufferCount = 1;
+    //    submit_info.pCommandBuffers = &cmdBuffer;
+
+    //    submit_info.signalSemaphoreCount = 1;
+    //    submit_info.pSignalSemaphores = &keySemaphores[getVertexBuffer(threadId, b)];
+
+    //    lastSemaphores[threadId] = keySemaphores[getVertexBuffer(threadId, b)];
+    //    lastsmf = &keySemaphores[getVertexBuffer(threadId, b)];
+
+    //    if(vkQueueSubmit(parent->graphics_queue, 1, &submit_info, VK_NULL_HANDLE) != VK_SUCCESS)
+    //    {
+    //      throw std::runtime_error("VKERR: Failed to submit draw to command buffer!");
+    //    }
+
+    //    b++;
+    //    n = 0;
+
+    //    uint32_t vb = getVertexBuffer(0, b);
+    //    vertex_buffer_mem = vertex_buffers_mem[vb];
+    //    vertex_buffer = vertex_buffers[vb];
+    //    cmdBuffer = command_buffers[getCommandBuffer(0, b)];
+
+    //    vkMapMemory(parent->device, vertex_buffer_mem, 0, buffer_size, 0, &data);
+
+    //    data_v = (Vertex*)data;
+    //  }
+    //  n++;
+    //}
+
+    vkUnmapMemory(parent->device, vertex_buffer_mem);
+
+    //Submit to the command buffer
+    VkSubmitInfo submit_info = {};
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    //VkSemaphore wait_semaphores[] = { parent->img_available_semaphore[parent->current_frame] }; //The semaphores we are waiting for
+    submit_info.pWaitSemaphores = lastsmf;
+    submit_info.waitSemaphoreCount = 1;
+    VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT }; //Wait with writing colors until the image is available
+    submit_info.pWaitDstStageMask = wait_stages;
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &cmdBuffer;
+
+    submit_info.signalSemaphoreCount = 1;
+    submit_info.pSignalSemaphores = &keySemaphores[getVertexBuffer(threadId, b)];
+
+    //lastSemaphores[threadId] = keySemaphores[getVertexBuffer(threadId, b)];
+    //lastsmf = &keySemaphores[getVertexBuffer(threadId, b)];
+
+    //if(vkQueueSubmit(parent->graphics_queue, 1, &submit_info, VK_NULL_HANDLE) != VK_SUCCESS)
+    //{
+    //  throw std::runtime_error("VKERR: Failed to submit draw to command buffer!");
+    //}
   }
 
-  VkDeviceMemory vertex_buffer_mem = vertex_buffers_mem[0];
-  VkBuffer vertex_buffer = vertex_buffers[0];
-  VkCommandBuffer cmdBuffer = command_buffers[parent->current_frame_index * bufferCount + 0];
-
-  void* data;
-  vkMapMemory(parent->device, vertex_buffer_mem, 0, buffer_size, 0, &data);
-
-  Vertex* data_v = (Vertex*)data;
-  data_v[0] = { {0,0},{1,1,1},{0,1} };
-  data_v[1] = { {1,0},{1,1,1},{1,1} };
-  data_v[2] = { {1,1},{1,1,1},{1,0} };
-  data_v[3] = { {0,1},{1,1,1},{0,0} };
-
-  //memcpy(data, vertices.data(), (size_t)buffer_size);
-  vkUnmapMemory(parent->device, vertex_buffer_mem);
-
-  //Submit to the command buffer
-  VkSubmitInfo submit_info = {};
-  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-  VkSemaphore wait_semaphores[] = { parent->img_available_semaphore[parent->current_frame] }; //The semaphores we are waiting for
-  VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT }; //Wait with writing colors until the image is available
-  submit_info.waitSemaphoreCount = 1;
-  submit_info.pWaitSemaphores = wait_semaphores;
-  submit_info.pWaitDstStageMask = wait_stages;
-  submit_info.commandBufferCount = 1;
-  submit_info.pCommandBuffers = &cmdBuffer;
-
   parent->next_step_semaphores.clear();
-  parent->next_step_semaphores.push_back(parent->render_fin_semaphore[parent->current_frame]);
-  submit_info.signalSemaphoreCount = parent->next_step_semaphores.size();
-  submit_info.pSignalSemaphores = parent->next_step_semaphores.data();
+  //parent->next_step_semaphores.resize(thread_count);
+  parent->next_step_semaphores.push_back(*lastsmf);
+  //for(int i = 0; i < thread_count; i++) parent->next_step_semaphores.push_back(lastSemaphores[i]);
 
-  vkResetFences(parent->device, 1, &parent->in_flight_fences[parent->current_frame]);
+  delete[] lastSemaphores;
 
-  if(vkQueueSubmit(parent->graphics_queue, 1, &submit_info, parent->in_flight_fences[parent->current_frame]) != VK_SUCCESS)
+  //VkDeviceMemory vertex_buffer_mem = vertex_buffers_mem[0];
+  //VkBuffer vertex_buffer = vertex_buffers[0];
+  //VkCommandBuffer cmdBuffer = command_buffers[parent->current_frame_index * bufferCount + 0];
+
+  //void* data;
+  //vkMapMemory(parent->device, vertex_buffer_mem, 0, buffer_size, 0, &data);
+
+  //Vertex* data_v = (Vertex*)data;
+  //data_v[0] = { {0,0},{1,1,1},{0,1} };
+  //data_v[1] = { {1,0},{1,1,1},{1,1} };
+  //data_v[2] = { {1,1},{1,1,1},{1,0} };
+  //data_v[3] = { {0,1},{1,1,1},{0,0} };
+
+
+
+  if(vkQueueSubmit(parent->graphics_queue, 0, 0, parent->in_flight_fences[parent->current_frame]) != VK_SUCCESS)
   {
     throw std::runtime_error("VKERR: Failed to submit draw to command buffer!");
   }
