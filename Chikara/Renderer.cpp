@@ -556,8 +556,8 @@ void Renderer::createGraphicsPipeline()
   //Depth Stencil
   VkPipelineDepthStencilStateCreateInfo depth_stencil = {};
   depth_stencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-  depth_stencil.depthTestEnable = VK_FALSE;
-  depth_stencil.depthWriteEnable = VK_FALSE;
+  depth_stencil.depthTestEnable = VK_TRUE;
+  depth_stencil.depthWriteEnable = VK_TRUE;
   depth_stencil.depthCompareOp = VK_COMPARE_OP_LESS;
   depth_stencil.depthBoundsTestEnable = VK_FALSE;
   depth_stencil.stencilTestEnable = VK_FALSE;
@@ -919,7 +919,7 @@ void Renderer::createIndexBuffer()
   void* data;
   vkMapMemory(device, staging_buffer_mem, 0, buffer_size, 0, &data);
   //memcpy(data, indices.data(), (size_t)buffer_size);
-  uint32_t* data_int = (uint32_t*)data;
+  uint16_t* data_int = (uint16_t*)data;
   for(int i = 0; i < buffer_len / 6; i++)
   {
     data_int[i * 6 + 0] = i * 4 + 0;
@@ -1041,7 +1041,7 @@ void Renderer::createCommandBuffers()
     VkBuffer vertex_buffers[] = { vertex_buffer };
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(cmd_buffers[i], 0, 1, vertex_buffers, offsets);
-    vkCmdBindIndexBuffer(cmd_buffers[i], index_buffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindIndexBuffer(cmd_buffers[i], index_buffer, 0, VK_INDEX_TYPE_UINT16);
     vkCmdBindDescriptorSets(cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pl_layout, 0, 1, &descriptor_sets[i], 0, nullptr);
 
     vkCmdDrawIndexed(cmd_buffers[i], (uint32_t)(VERTEX_BUFFER_SIZE * 6), 1, 0, 0, 0);
@@ -1128,10 +1128,15 @@ void Renderer::drawFrame()
   vkMapMemory(device, vertex_buffer_mem, 0, buffer_size, 0, &data);
 
   Vertex* data_v = (Vertex*)data;
+<<<<<<< HEAD
   data_v[0] = { {0,0},{1,1,1},{0,1} };
   data_v[1] = { {1,0},{1,1,1},{1,1} };
   data_v[2] = { {1,1},{1,1,1},{1,0} };
   data_v[3] = { {0,1},{1,1,1},{0,0} };
+=======
+  data_v[0].tex_coord.x += 0.0001;
+  data_v[0].pos.x += 0.0001;
+>>>>>>> parent of a73bffb... asd
 
   //memcpy(data, vertices.data(), (size_t)buffer_size);
   vkUnmapMemory(device, vertex_buffer_mem);
