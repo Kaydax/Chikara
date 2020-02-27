@@ -1128,15 +1128,11 @@ void Renderer::drawFrame()
   vkMapMemory(device, vertex_buffer_mem, 0, buffer_size, 0, &data);
 
   Vertex* data_v = (Vertex*)data;
-<<<<<<< HEAD
+
   data_v[0] = { {0,0},{1,1,1},{0,1} };
   data_v[1] = { {1,0},{1,1,1},{1,1} };
   data_v[2] = { {1,1},{1,1,1},{1,0} };
   data_v[3] = { {0,1},{1,1,1},{0,0} };
-=======
-  data_v[0].tex_coord.x += 0.0001;
-  data_v[0].pos.x += 0.0001;
->>>>>>> parent of a73bffb... asd
 
   //memcpy(data, vertices.data(), (size_t)buffer_size);
   vkUnmapMemory(device, vertex_buffer_mem);
