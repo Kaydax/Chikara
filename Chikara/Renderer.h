@@ -70,7 +70,7 @@ struct SwapChainSupportDetails
 
 struct Vertex
 {
-  glm::vec2 pos;
+  glm::vec3 pos;
   glm::vec3 color;
   glm::vec2 tex_coord;
 
@@ -89,7 +89,7 @@ struct Vertex
     std::array<VkVertexInputAttributeDescription, 3> attrib_descriptions = {};
     attrib_descriptions[0].binding = 0;
     attrib_descriptions[0].location = 0;
-    attrib_descriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+    attrib_descriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
     attrib_descriptions[0].offset = offsetof(Vertex, pos);
 
     attrib_descriptions[1].binding = 0;
@@ -114,6 +114,35 @@ struct UniformBufferObject
 };
 
 #pragma endregion
+
+//const std::vector<Vertex> vertices = {
+//  {{-1.0f, -1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}}, //0
+//  {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}}, //1
+//  {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}}, //2
+//  {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}, //3
+//
+//  {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+//  {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+//  {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+//  {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
+//};
+
+const std::vector<Vertex> vertices = {
+  {{-1.0f, -1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}}, //0
+  {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}}, //1
+  {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}}, //2
+  {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}, //3
+
+  {{0, 0, 0}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
+  {{1, 0, 0}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
+  {{1, 1, 0}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
+  {{0, 1, 0}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}}
+};
+
+const std::vector<uint16_t> indices = {
+  0, 1, 2, 2, 3, 0,
+  4, 5, 6, 6, 7, 4
+};
 
 class Renderer
 {
@@ -144,8 +173,6 @@ class Renderer
     VkDescriptorPool descriptor_pool;
     std::vector<VkDescriptorSet> descriptor_sets;
 
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
     VkBuffer vertex_buffer;
     VkDeviceMemory vertex_buffer_mem;
     VkBuffer index_buffer;
