@@ -28,6 +28,7 @@ using namespace std;
 #pragma endregion
 
 #define VERTEX_BUFFER_SIZE 2048
+#define VERTEX_BUFFER_BIND_ID 0
 
 const int width = 800;
 const int height = 600;
@@ -113,6 +114,12 @@ struct UniformBufferObject
   alignas(16) glm::mat4 proj;
 };
 
+struct UniformBuffers
+{
+  VkBuffer VS;
+  VkBuffer GS;
+};
+
 #pragma endregion
 
 //const std::vector<Vertex> vertices = {
@@ -156,6 +163,7 @@ class Renderer
     VkDescriptorPool descriptor_pool;
     std::vector<VkDescriptorSet> descriptor_sets;
 
+    std::vector<Vertex> vertices;
     VkBuffer vertex_buffer;
     VkDeviceMemory vertex_buffer_mem;
     VkBuffer index_buffer;

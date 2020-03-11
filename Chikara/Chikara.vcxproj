@@ -24,13 +24,11 @@
   <ItemGroup>
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Midi.cpp" />
-    <ClCompile Include="NoteRender.cpp" />
     <ClCompile Include="Renderer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Main.h" />
     <ClInclude Include="Midi.h" />
-    <ClInclude Include="NoteRender.h" />
     <ClInclude Include="Renderer.h" />
   </ItemGroup>
   <ItemGroup>

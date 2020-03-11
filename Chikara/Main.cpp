@@ -1,7 +1,6 @@
 #include "Main.h"
 
 Renderer r;
-NoteRender* nr;
 Midi* midi;
 
 void Main::run()
@@ -9,8 +8,6 @@ void Main::run()
   midi = new Midi("E:/Midi/Clubstep.mid");
   initWindow(); //Setup everything for the window
   initVulkan(); //Setup everything for Vulkan
-  nr = new NoteRender(&r, 8);
-  nr->generateWorkflow();
   mainLoop(); //The main loop for the application
   cleanup(); //Cleanup everything because we closed the application
 }
@@ -61,10 +58,7 @@ void Main::mainLoop()
   while(!glfwWindowShouldClose(r.window))
   {
     glfwPollEvents();
-    r.startDrawFrame();
-    //r.drawFrame();
-    nr->renderFrame(midi->note_buffer);
-    r.endDrawFrame();
+    r.drawFrame();
 
     //Output fps
     ++frame_counter;
