@@ -139,6 +139,7 @@ class Renderer
   public:
     GLFWwindow* window;
     VkInstance inst;
+    VkDebugUtilsMessengerEXT debug_msg;
     VkSurfaceKHR surface;
 
     VkPhysicalDevice pdevice = VK_NULL_HANDLE;
@@ -195,6 +196,7 @@ class Renderer
     uint32_t current_frame_index;
 
     void createInstance();
+    void setupDebugMessenger();
     void createSurface();
     void setupDevice();
     void createLogicalDevice();
@@ -224,7 +226,10 @@ class Renderer
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& buffer_mem);
     void copyBuffer(VkBuffer src_buffer, VkBuffer dst_buffer, VkDeviceSize size);
+    VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
+    void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
   private:
+    void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& create_info);
     void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& img, VkDeviceMemory& img_mem);
     void updateUniformBuffer(uint32_t current_img);
     void endSingleTimeCommands(VkCommandBuffer cmd_buffer);
@@ -234,6 +239,7 @@ class Renderer
     bool isDeviceSuitable(VkPhysicalDevice device);
     bool checkDeviceExtSupport(VkPhysicalDevice device);
     bool checkValidationLayerSupport();
+    std::vector<const char*> getRequiredExtensions();
     bool hasStencilComponent(VkFormat format);
 
     VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
@@ -256,4 +262,5 @@ class Renderer
     static std::vector<char> readFile(const std::string& filename);
 
     uint32_t findMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties);
+    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData);
 };

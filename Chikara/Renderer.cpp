@@ -33,17 +33,24 @@ void Renderer::createInstance()
   VkInstanceCreateInfo create_info = {};
   create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   create_info.pApplicationInfo = &app_info;
-  create_info.enabledExtensionCount = glfwExtensionCount;
-  create_info.ppEnabledExtensionNames = glfwExtensions;
-
+  auto extensions = getRequiredExtensions();
+  create_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+  create_info.ppEnabledExtensionNames = extensions.data();
+  
+  VkDebugUtilsMessengerCreateInfoEXT debug_create_info;
   if(enable_validation_layers)
   {
     create_info.enabledLayerCount = static_cast<uint32_t>(validation_layers.size());
     create_info.ppEnabledLayerNames = validation_layers.data();
+
+    populateDebugMessengerCreateInfo(debug_create_info);
+    create_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debug_create_info;
   }
   else
   {
     create_info.enabledLayerCount = 0;
+
+    create_info.pNext = nullptr;
   }
 
   VkResult res = vkCreateInstance(&create_info, nullptr, &inst);
@@ -51,17 +58,27 @@ void Renderer::createInstance()
   {
     throw std::runtime_error("VKERR: Failed to create instance!");
   }
+}
 
-  uint32_t extensionCount = 0;
-  vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-  std::vector<VkExtensionProperties> extensions(extensionCount);
-  vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
+void Renderer::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& create_info)
+{
+  create_info = {};
+  create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+  create_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+  create_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+  create_info.pfnUserCallback = debugCallback;
+}
 
-  std::cout << "Available Extensions:" << std::endl;
+void Renderer::setupDebugMessenger()
+{
+  if(!enable_validation_layers) return;
 
-  for(const auto& extension : extensions)
+  VkDebugUtilsMessengerCreateInfoEXT create_info = {};
+  populateDebugMessengerCreateInfo(create_info);
+
+  if(CreateDebugUtilsMessengerEXT(inst, &create_info, nullptr, &debug_msg) != VK_SUCCESS)
   {
-    std::cout << "\t" << extension.extensionName << std::endl;
+    throw std::runtime_error("VKERR: Failed to setup debug messenger!");
   }
 }
 
@@ -1420,6 +1437,22 @@ bool Renderer::checkValidationLayerSupport()
   return true;
 }
 
+std::vector<const char*> Renderer::getRequiredExtensions()
+{
+  uint32_t glfw_extension_count = 0;
+  const char** glfw_extensions;
+  glfw_extensions = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
+
+  std::vector<const char*> extensions(glfw_extensions, glfw_extensions + glfw_extension_count);
+
+  if(enable_validation_layers)
+  {
+    extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+  }
+
+  return extensions;
+}
+
 #pragma endregion
 
 #pragma region Other things
@@ -1588,6 +1621,35 @@ uint32_t Renderer::findMemoryType(uint32_t type_filter, VkMemoryPropertyFlags pr
   }
 
   throw std::runtime_error("VKERR: Failed to find suitable memory type!");
+}
+
+VKAPI_ATTR VkBool32 VKAPI_CALL Renderer::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
+{
+  std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+
+  return VK_FALSE;
+}
+
+VkResult Renderer::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger)
+{
+  auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+  if(func != nullptr)
+  {
+    return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+  }
+  else
+  {
+    return VK_ERROR_EXTENSION_NOT_PRESENT;
+  }
+}
+
+void Renderer::DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator)
+{
+  auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+  if(func != nullptr)
+  {
+    func(instance, debugMessenger, pAllocator);
+  }
 }
 
 #pragma endregion

@@ -5,7 +5,7 @@ Midi* midi;
 
 void Main::run()
 {
-  midi = new Midi("E:/Midi/Clubstep.mid");
+  //midi = new Midi("C:/Users/Kaydax/Documents/Stuff/Midis/[Black MIDI]scarlet_zone-& The Young Descendant of Tepes V.2.mid");
   initWindow(); //Setup everything for the window
   initVulkan(); //Setup everything for Vulkan
   mainLoop(); //The main loop for the application
@@ -25,6 +25,7 @@ void Main::initWindow()
 void Main::initVulkan()
 {
   r.createInstance(); //Create the Vulkan Instance
+  r.setupDebugMessenger();
   r.createSurface();
   r.setupDevice(); //Pick the physical device
   r.createLogicalDevice(); //Create the logical device to use
@@ -141,6 +142,11 @@ void Main::recreateSwapChain()
 
 void Main::cleanup()
 {
+  if(enable_validation_layers)
+  {
+    r.DestroyDebugUtilsMessengerEXT(r.inst, r.debug_msg, nullptr);
+  }
+
   cleanupSwapChain();
 
   vkDestroySampler(r.device, r.tex_sampler, nullptr);
