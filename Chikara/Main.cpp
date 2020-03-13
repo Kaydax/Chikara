@@ -18,7 +18,7 @@ void Main::initWindow()
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); //Set the glfw api to GLFW_NO_API because we are using Vulkan
   glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); //Change the ability to resize the window
   r.window = glfwCreateWindow(width, height, "Chikara", nullptr, nullptr); //Now we create the window
-  glfwSetWindowUserPointer(r.window, this);
+  glfwSetWindowUserPointer(r.window, &r);
   glfwSetFramebufferSizeCallback(r.window, r.framebufferResizeCallback);
 }
 
