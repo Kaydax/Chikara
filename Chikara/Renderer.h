@@ -220,9 +220,6 @@ class Renderer
     void createSyncObjects();
     void drawFrame();
 
-    void startDrawFrame(); 
-    void endDrawFrame(); 
-
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& buffer_mem);
     void copyBuffer(VkBuffer src_buffer, VkBuffer dst_buffer, VkDeviceSize size);

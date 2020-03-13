@@ -936,7 +936,7 @@ void Renderer::createIndexBuffer()
   void* data;
   vkMapMemory(device, staging_buffer_mem, 0, buffer_size, 0, &data);
   //memcpy(data, indices.data(), (size_t)buffer_size);
-  uint16_t* data_int = (uint16_t*)data;
+  uint32_t* data_int = (uint32_t*)data;
   for(int i = 0; i < buffer_len / 6; i++)
   {
     data_int[i * 6 + 0] = i * 4 + 0;
@@ -1057,7 +1057,7 @@ void Renderer::createCommandBuffers()
 
     VkBuffer vertex_buffers[] = { vertex_buffer };
     VkDeviceSize offsets[] = { 0 };
-    vkCmdBindVertexBuffers(cmd_buffers[i], VERTEX_BUFFER_BIND_ID, 1, vertex_buffers, offsets);
+    vkCmdBindVertexBuffers(cmd_buffers[i], 0, 1, vertex_buffers, offsets);
     vkCmdBindIndexBuffer(cmd_buffers[i], index_buffer, 0, VK_INDEX_TYPE_UINT32);
     vkCmdBindDescriptorSets(cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pl_layout, 0, 1, &descriptor_sets[i], 0, nullptr);
 
@@ -1108,36 +1108,6 @@ void Renderer::createSyncObjects()
 
 #pragma region Drawing
 
-void Renderer::startDrawFrame()
-{
-  vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
-  vkResetFences(device, 1, &in_flight_fences[current_frame]);
-
-  VkResult result = vkAcquireNextImageKHR(device, swap_chain, UINT64_MAX, img_available_semaphore[current_frame], VK_NULL_HANDLE, &current_frame_index);
-
-  if(result == VK_ERROR_OUT_OF_DATE_KHR)
-  {
-    m.recreateSwapChain();
-    return;
-  }
-  else if(result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
-  {
-    throw std::runtime_error("VKERR: Failed to acquire swap chain image!");
-  }
-
-  //Check if a previous frame is using this image (i.e. there is its fence to wait on)
-  if(imgs_in_flight[current_frame_index] != VK_NULL_HANDLE)
-  {
-    vkWaitForFences(device, 1, &imgs_in_flight[current_frame_index], VK_TRUE, UINT64_MAX);
-  }
-
-  //Mark the image as now being in use by this frame
-  imgs_in_flight[current_frame_index] = imgs_in_flight[current_frame];
-
-  //Update the Uniform Buffer
-  updateUniformBuffer(current_frame_index);
-}
-
 void Renderer::drawFrame()
 {
   vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
@@ -1179,7 +1149,7 @@ void Renderer::drawFrame()
   data_v[2] = { {1,1},{1,1,1},{1,0} };
   data_v[3] = { {0,1},{1,1,1},{0,0} };
 
-  //memcpy(data, vertices.data(), (size_t)buffer_size);
+  //memcpy(data, data_v, (size_t)buffer_size);
   vkUnmapMemory(device, vertex_buffer_mem);
 
   //Submit to the command buffer
@@ -1218,35 +1188,6 @@ void Renderer::drawFrame()
   present_info.pResults = nullptr; // Optional
 
   result = vkQueuePresentKHR(present_queue, &present_info);
-
-  if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebuffer_resized)
-  {
-    framebuffer_resized = false;
-    m.recreateSwapChain();
-  }
-  else if(result != VK_SUCCESS)
-  {
-    throw std::runtime_error("VKERR: Failed to present swap chain image!");
-  }
-
-  current_frame = (current_frame + 1) % max_frames_in_flight;
-}
-
-void Renderer::endDrawFrame()
-{
-  //Presentation
-  VkPresentInfoKHR present_info = {};
-  present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-  present_info.waitSemaphoreCount = next_step_semaphores.size();
-  present_info.pWaitSemaphores = next_step_semaphores.data();
-
-  VkSwapchainKHR swap_chains[] = { swap_chain }; //An array of all our swap chains
-  present_info.swapchainCount = 1;
-  present_info.pSwapchains = swap_chains;
-  present_info.pImageIndices = &current_frame_index;
-  present_info.pResults = nullptr; // Optional
-
-  VkResult result = vkQueuePresentKHR(present_queue, &present_info);
 
   if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebuffer_resized)
   {
