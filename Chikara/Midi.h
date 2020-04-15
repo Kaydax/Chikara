@@ -26,6 +26,7 @@ struct Note
 {
   double start;
   double end;
+  int key;
   NoteColor* color;
 };
 

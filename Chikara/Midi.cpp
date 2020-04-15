@@ -598,6 +598,7 @@ void MidiTrack::parseEvent2ElectricBoogaloo(list<Note*>** global_notes)
           //n.color = sdjgkvnskjsn;
           n->start = time;
           n->end = -1;
+          n->key = key;
 
           stack->push_back(n);
           global_notes[key]->push_back(n);

@@ -23,15 +23,16 @@
 #include <cstdint>
 #include <fstream>
 #include <array>
+#include "Midi.h"
 using namespace std;
 
 #pragma endregion
 
-#define VERTEX_BUFFER_SIZE 2048
+#define VERTEX_BUFFER_SIZE 16384
 #define VERTEX_BUFFER_BIND_ID 0
 
-const int width = 800;
-const int height = 600;
+const uint32_t width = 800;
+const uint32_t height = 600;
 
 const int max_frames_in_flight = 2;
 
@@ -114,29 +115,25 @@ struct UniformBufferObject
   alignas(16) glm::mat4 proj;
 };
 
-struct UniformBuffers
-{
-  VkBuffer VS;
-  VkBuffer GS;
-};
-
 #pragma endregion
 
 //const std::vector<Vertex> vertices = {
-//  {{-1.0f, -1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}}, //0
-//  {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}}, //1
-//  {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}}, //2
-//  {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}, //3
-//
-//  {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-//  {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-//  {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-//  {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
+//  {{0,0},{1,1,1},{0,1}}, //0
+//  {{1,0},{1,1,1},{1,1}}, //1
+//  {{1,1},{1,1,1},{1,0}}, //2
+//  {{0,1},{1,1,1},{0,0}} //3
+//};
+
+//const std::vector<uint32_t> indices = {
+//  //Top
+//  0, 1, 2,
+//  2, 3, 0
 //};
 
 class Renderer
 {
   public:
+    list<Note*>** note_buffer;
     GLFWwindow* window;
     VkInstance inst;
     VkDebugUtilsMessengerEXT debug_msg;
@@ -191,7 +188,11 @@ class Renderer
 
     std::vector<VkSemaphore> next_step_semaphores;
 
+    std::vector<Note*> notes_shown;
+
     bool framebuffer_resized = false;
+
+    float pre_time;
 
     uint32_t current_frame_index;
 
@@ -218,7 +219,7 @@ class Renderer
     void createDescriptorSets();
     void createCommandBuffers();
     void createSyncObjects();
-    void drawFrame();
+    void drawFrame(float time);
 
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& buffer_mem);

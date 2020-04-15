@@ -246,7 +246,7 @@ VkSurfaceFormatKHR Renderer::chooseSwapSurfaceFormat(const std::vector<VkSurface
 {
   for(const auto& available_format : available_formats)
   {
-    if(available_format.format == VK_FORMAT_B8G8R8A8_UNORM && available_format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+    if(available_format.format == VK_FORMAT_B8G8R8A8_SRGB && available_format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
     {
       return available_format;
     }
@@ -355,7 +355,7 @@ void Renderer::createRenderPass()
   dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
   dependency.srcAccessMask = 0;
   dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+  dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
   //Create the render pass object
   std::array<VkAttachmentDescription, 2> attachments = { color_attachment, depth_attachment };
@@ -755,11 +755,11 @@ void Renderer::createTextureImage()
   stbi_image_free(pixels);
 
   //Create the image
-  createImage(tex_width, tex_height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, tex_img, tex_img_mem);
+  createImage(tex_width, tex_height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, tex_img, tex_img_mem);
 
-  transitionImageLayout(tex_img, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+  transitionImageLayout(tex_img, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
   copyBufferToImage(staging_buffer, tex_img, static_cast<uint32_t>(tex_width), static_cast<uint32_t>(tex_height));
-  transitionImageLayout(tex_img, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+  transitionImageLayout(tex_img, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
   //Destroy
   vkDestroyBuffer(device, staging_buffer, nullptr);
@@ -768,7 +768,7 @@ void Renderer::createTextureImage()
 
 void Renderer::createTextureImageView()
 {
-  tex_img_view = createImageView(tex_img, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
+  tex_img_view = createImageView(tex_img, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
 void Renderer::createTextureSampler()
@@ -1072,6 +1072,7 @@ void Renderer::createCommandBuffers()
   }
 }
 
+
 #pragma endregion
 
 #pragma region Create sync objects
@@ -1108,7 +1109,7 @@ void Renderer::createSyncObjects()
 
 #pragma region Drawing
 
-void Renderer::drawFrame()
+void Renderer::drawFrame(float time)
 {
   vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
   vkResetFences(device, 1, &in_flight_fences[current_frame]);
@@ -1138,16 +1139,74 @@ void Renderer::drawFrame()
   //Update the Uniform Buffer
   updateUniformBuffer(img_index);
 
-  VkDeviceSize buffer_size = sizeof(vertices[0]) * VERTEX_BUFFER_SIZE * 4;
+  for(int i = 0; i < 256; i++)
+  {
+    list<Note*>* notes = note_buffer[i];
+    //for(int j = 0; j < 1; j++)
+    while(true)
+    {
+      if(notes->empty())
+      {
+        break;
+      }
+      Note* n = notes->front();
+      if(n->end < n->start)
+      {
+        throw std::runtime_error("The fucking midi broke");
+      }
+      if(n->start < time + pre_time)
+      {
+        notes->pop_front();
+        notes_shown.push_back(n);
+      }
+      else
+      {
+        break;
+      }
+    }
+  }
+
+  VkDeviceSize buffer_size = sizeof(vertices[0]) * notes_shown.size() * 4; //VERTEX_BUFFER_SIZE
   void* data;
   vkMapMemory(device, vertex_buffer_mem, 0, buffer_size, 0, &data);
 
   Vertex* data_v = (Vertex*)data;
+  //cout << endl << "Notes playing: " << notes_shown.size();
 
-  data_v[0] = { {0,0},{1,1,1},{0,1} };
-  data_v[1] = { {1,0},{1,1,1},{1,1} };
-  data_v[2] = { {1,1},{1,1,1},{1,0} };
-  data_v[3] = { {0,1},{1,1,1},{0,0} };
+  for(int i = 0; i < notes_shown.size(); i++)
+  {
+    Note* n = notes_shown[i];
+    if(time >= n->end)
+    {
+      data_v[i * 4 + 0] = { {0,0},{1,1,1},{0,1} };
+      data_v[i * 4 + 1] = { {0,0},{1,1,1},{1,1} };
+      data_v[i * 4 + 2] = { {0,0},{0,0,0},{1,0} };
+      data_v[i * 4 + 3] = { {0,0},{0,0,0},{0,0} };
+    }
+    else
+    {
+      float s = n->start - time;
+      float e = n->end - time;
+      float x = n->key / 256.0;
+      float w = 1 / 256.0;
+
+      data_v[i * 4 + 0] = { {x,s},{1,1,1},{0,1} };
+      data_v[i * 4 + 1] = { {x + w,s},{1,1,1},{1,1} };
+      data_v[i * 4 + 2] = { {x + w,e},{0,0,0},{1,0} };
+      data_v[i * 4 + 3] = { {x,e},{0,0,0},{0,0} };
+    }
+  }
+
+  for(int i = notes_shown.size() - 1; i >= 0; i--)
+  {
+    Note* n = notes_shown[i];
+    if(time >= n->end)
+    {
+      notes_shown.erase(notes_shown.begin() + i);
+      //notes_shown.clear();
+      //i--;
+    }
+  }
 
   //memcpy(data, data_v, (size_t)buffer_size);
   vkUnmapMemory(device, vertex_buffer_mem);

@@ -5,7 +5,8 @@ Midi* midi;
 
 void Main::run()
 {
-  //midi = new Midi("C:/Users/Kaydax/Documents/Stuff/Midis/[Black MIDI]scarlet_zone-& The Young Descendant of Tepes V.2.mid");
+  midi = new Midi("C:/Users/Kaydax/Documents/Stuff/Midis/tau2.5.9.mid");
+  r.note_buffer = midi->note_buffer;
   initWindow(); //Setup everything for the window
   initVulkan(); //Setup everything for Vulkan
   mainLoop(); //The main loop for the application
@@ -18,7 +19,7 @@ void Main::initWindow()
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); //Set the glfw api to GLFW_NO_API because we are using Vulkan
   glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); //Change the ability to resize the window
   r.window = glfwCreateWindow(width, height, "Chikara", nullptr, nullptr); //Now we create the window
-  glfwSetWindowUserPointer(r.window, this);
+  glfwSetWindowUserPointer(r.window, &r);
   glfwSetFramebufferSizeCallback(r.window, r.framebufferResizeCallback);
 }
 
@@ -56,10 +57,15 @@ uint64_t fps = 0;
 
 void Main::mainLoop()
 {
+  static auto start_time = std::chrono::high_resolution_clock::now();
+  r.pre_time = 1.0;
   while(!glfwWindowShouldClose(r.window))
   {
+    auto current_time = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
+
     glfwPollEvents();
-    r.drawFrame();
+    r.drawFrame(time);
 
     //Output fps
     ++frame_counter;
@@ -68,7 +74,7 @@ void Main::mainLoop()
       last_time = timer.now();
       fps = frame_counter;
       frame_counter = 0;
-      cout << fps << " fps\n";
+      cout << endl << fps << " fps";
     }
   }
 
