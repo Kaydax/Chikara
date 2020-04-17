@@ -507,14 +507,18 @@ void Renderer::createGraphicsPipeline()
   VkPipelineShaderStageCreateInfo shader_stages[] = { vert_shader_stage_info, frag_shader_stage_info };
 
   //Binding and attribute
-  auto binding_description = Vertex::getBindingDescription();
+  VkVertexInputBindingDescription binding_description[] = { Vertex::getBindingDescription(), InstanceData::getBindingDescription() };
   auto attrib_descriptions = Vertex::getAttributeDescriptions();
+  {
+    auto inst_attrib_descriptions = InstanceData::getAttributeDescriptions();
+    attrib_descriptions.insert(attrib_descriptions.end(), inst_attrib_descriptions.begin(), inst_attrib_descriptions.end());
+  }
 
   //Describe the format of the vertex data that will be passed to the vertex shader
   VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
   vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-  vertex_input_info.vertexBindingDescriptionCount = 1;
-  vertex_input_info.pVertexBindingDescriptions = &binding_description;
+  vertex_input_info.vertexBindingDescriptionCount = sizeof(binding_description) / sizeof(VkVertexInputBindingDescription);
+  vertex_input_info.pVertexBindingDescriptions = binding_description;
   vertex_input_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(attrib_descriptions.size());;
   vertex_input_info.pVertexAttributeDescriptions = attrib_descriptions.data();
 
@@ -896,60 +900,55 @@ void Renderer::transitionImageLayout(VkImage img, VkFormat format, VkImageLayout
 
 void Renderer::createVertexBuffer()
 {
-  VkDeviceSize buffer_size = sizeof(Vertex) * VERTEX_BUFFER_SIZE * 4;
-
-  //VkBuffer staging_buffer;
-  //VkDeviceMemory staging_buffer_mem;
-
-  //createBuffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging_buffer, staging_buffer_mem);
-
-  //void* data;
-  //vkMapMemory(device, staging_buffer_mem, 0, buffer_size, 0, &data);
-  //memcpy(data, vertices.data(), (size_t)buffer_size);
-  //vkUnmapMemory(device, staging_buffer_mem);
-
-  //createBuffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertex_buffer, vertex_buffer_mem);
-  //copyBuffer(staging_buffer, vertex_buffer, buffer_size);
-
-  //vkDestroyBuffer(device, staging_buffer, nullptr);
-  //vkFreeMemory(device, staging_buffer_mem, nullptr);
-
-
-  createBuffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, vertex_buffer, vertex_buffer_mem);
-
-  void* data;
-  vkMapMemory(device, vertex_buffer_mem, 0, buffer_size, 0, &data);
-  //memcpy(data, vertices.data(), (size_t)buffer_size);
-  vkUnmapMemory(device, vertex_buffer_mem);
-}
-
-void Renderer::createIndexBuffer()
-{
-  uint32_t buffer_len = VERTEX_BUFFER_SIZE * 6;
-  VkDeviceSize buffer_size = sizeof(uint32_t) * buffer_len;
+  // this data will be replaced with instancing
+  Vertex vertices[] {
+    { {0,0},{1,1,1},{0,1} },
+    { {0,0},{1,1,1},{1,1} },
+    { {0,0},{0,0,0},{1,0} },
+    { {0,0},{0,0,0},{0,0} },
+  };
 
   VkBuffer staging_buffer;
   VkDeviceMemory staging_buffer_mem;
 
-  createBuffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging_buffer, staging_buffer_mem);
+  createBuffer(sizeof(vertices), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging_buffer, staging_buffer_mem);
 
   void* data;
-  vkMapMemory(device, staging_buffer_mem, 0, buffer_size, 0, &data);
-  //memcpy(data, indices.data(), (size_t)buffer_size);
-  uint32_t* data_int = (uint32_t*)data;
-  for(int i = 0; i < buffer_len / 6; i++)
-  {
-    data_int[i * 6 + 0] = i * 4 + 0;
-    data_int[i * 6 + 1] = i * 4 + 1;
-    data_int[i * 6 + 2] = i * 4 + 2;
-    data_int[i * 6 + 3] = i * 4 + 2;
-    data_int[i * 6 + 4] = i * 4 + 3;
-    data_int[i * 6 + 5] = i * 4 + 0;
-  }
+  vkMapMemory(device, staging_buffer_mem, 0, sizeof(vertices), 0, &data);
+  memcpy(data, vertices, sizeof(vertices));
   vkUnmapMemory(device, staging_buffer_mem);
 
-  createBuffer(buffer_size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, index_buffer, index_buffer_mem);
-  copyBuffer(staging_buffer, index_buffer, buffer_size);
+  createBuffer(sizeof(vertices), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertex_buffer, vertex_buffer_mem);
+  copyBuffer(staging_buffer, vertex_buffer, sizeof(vertices));
+
+  vkDestroyBuffer(device, staging_buffer, nullptr);
+  vkFreeMemory(device, staging_buffer_mem, nullptr);
+}
+
+void Renderer::createInstanceBuffer()
+{
+  createBuffer(sizeof(InstanceData) * MAX_NOTES, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, instance_buffer, instance_buffer_mem);
+}
+
+void Renderer::createIndexBuffer()
+{
+  uint32_t indices[] = {
+    0, 1, 2,
+    1, 2, 3,
+  };
+
+  VkBuffer staging_buffer;
+  VkDeviceMemory staging_buffer_mem;
+
+  createBuffer(sizeof(indices), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging_buffer, staging_buffer_mem);
+
+  void* data;
+  vkMapMemory(device, staging_buffer_mem, 0, sizeof(indices), 0, &data);
+  memcpy(data, indices, sizeof(indices));
+  vkUnmapMemory(device, staging_buffer_mem);
+
+  createBuffer(sizeof(indices), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, index_buffer, index_buffer_mem);
+  copyBuffer(staging_buffer, index_buffer, sizeof(indices));
 
   vkDestroyBuffer(device, staging_buffer, nullptr);
   vkFreeMemory(device, staging_buffer_mem, nullptr);
@@ -1057,11 +1056,12 @@ void Renderer::createCommandBuffers()
 
     VkBuffer vertex_buffers[] = { vertex_buffer };
     VkDeviceSize offsets[] = { 0 };
-    vkCmdBindVertexBuffers(cmd_buffers[i], 0, 1, vertex_buffers, offsets);
+    vkCmdBindVertexBuffers(cmd_buffers[i], VERTEX_BUFFER_BIND_ID, 1, vertex_buffers, offsets);
+    vkCmdBindVertexBuffers(cmd_buffers[i], INSTANCE_BUFFER_BIND_ID, 1, &instance_buffer, offsets);
     vkCmdBindIndexBuffer(cmd_buffers[i], index_buffer, 0, VK_INDEX_TYPE_UINT32);
     vkCmdBindDescriptorSets(cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pl_layout, 0, 1, &descriptor_sets[i], 0, nullptr);
 
-    vkCmdDrawIndexed(cmd_buffers[i], (uint32_t)(VERTEX_BUFFER_SIZE * 6), 1, 0, 0, 0);
+    vkCmdDrawIndexed(cmd_buffers[i], 6, MAX_NOTES, 0, 0, 0);
 
     vkCmdEndRenderPass(cmd_buffers[i]);
 
@@ -1137,7 +1137,7 @@ void Renderer::drawFrame(float time)
   imgs_in_flight[img_index] = imgs_in_flight[current_frame];
 
   //Update the Uniform Buffer
-  updateUniformBuffer(img_index);
+  updateUniformBuffer(img_index, time);
 
   for(int i = 0; i < 256; i++)
   {
@@ -1166,14 +1166,13 @@ void Renderer::drawFrame(float time)
     }
   }
 
-  VkDeviceSize buffer_size = sizeof(Vertex) * notes_shown.size() * 4; //VERTEX_BUFFER_SIZE
-  if (notes_shown.size() > VERTEX_BUFFER_SIZE)
-      throw std::runtime_error("UNIMPLEMENTED!!!!");
+  if (notes_shown.size() > MAX_NOTES)
+    throw std::runtime_error("UNIMPLEMENTED!!!!");
   void* data;
-  vkMapMemory(device, vertex_buffer_mem, 0, sizeof(Vertex) * VERTEX_BUFFER_SIZE * 4, 0, &data);
-  memset(data, 0, sizeof(Vertex) * VERTEX_BUFFER_SIZE * 4);
+  vkMapMemory(device, instance_buffer_mem, 0, sizeof(InstanceData) * MAX_NOTES, 0, &data);
+  memset(data, 0, sizeof(InstanceData) * MAX_NOTES);
 
-  Vertex* data_v = (Vertex*)data;
+  InstanceData* data_i = (InstanceData*)data;
   //cout << endl << "Notes playing: " << notes_shown.size();
 
   for (auto [it, i] = std::tuple{ notes_shown.begin(), 0 }; it != notes_shown.end(); it++, i++)
@@ -1181,22 +1180,11 @@ void Renderer::drawFrame(float time)
     Note* n = *it;
     if(time >= n->end)
     {
-      data_v[i * 4 + 0] = { {0,0},{1,1,1},{0,1} };
-      data_v[i * 4 + 1] = { {0,0},{1,1,1},{1,1} };
-      data_v[i * 4 + 2] = { {0,0},{0,0,0},{1,0} };
-      data_v[i * 4 + 3] = { {0,0},{0,0,0},{0,0} };
+      data_i[i] = { 0, 0, 0, {0,0,0} };
     }
     else
     {
-      float s = n->start - time;
-      float e = n->end - time;
-      float x = n->key / 256.0;
-      float w = 1 / 256.0;
-
-      data_v[i * 4 + 0] = { {x,s},{1,1,1},{0,1} };
-      data_v[i * 4 + 1] = { {x + w,s},{1,1,1},{1,1} };
-      data_v[i * 4 + 2] = { {x + w,e},{0,0,0},{1,0} };
-      data_v[i * 4 + 3] = { {x,e},{0,0,0},{0,0} };
+      data_i[i] = { static_cast<float>(n->start), static_cast<float>(n->end), n->key, {1,1,1} };
     }
   }
 
@@ -1205,7 +1193,7 @@ void Renderer::drawFrame(float time)
   });
 
   //memcpy(data, data_v, (size_t)buffer_size);
-  vkUnmapMemory(device, vertex_buffer_mem);
+  vkUnmapMemory(device, instance_buffer_mem);
 
   //Submit to the command buffer
   VkSubmitInfo submit_info = {};
@@ -1257,14 +1245,8 @@ void Renderer::drawFrame(float time)
   current_frame = (current_frame + 1) % max_frames_in_flight;
 }
 
-void Renderer::updateUniformBuffer(uint32_t current_img)
+void Renderer::updateUniformBuffer(uint32_t current_img, float time)
 {
-  //Time to start with time... (ok I'm sorry about this comment)
-  static auto start_time = std::chrono::high_resolution_clock::now();
-
-  auto current_time = std::chrono::high_resolution_clock::now();
-  float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
-
   //Now lets rotate the model around the Z-axis based on the time. This will rotate 90 degrees per second
   UniformBufferObject ubo = {};
   //ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
@@ -1284,6 +1266,9 @@ void Renderer::updateUniformBuffer(uint32_t current_img)
 
   //Now lets flip the Y coordinates because of the fact GLM was created for OpenGL
   ubo.proj[1][1] *= -1;
+
+  // blah blah blah blah
+  ubo.time = time;
 
   //Now lets copy the data in the uniform buffer into the current uniform buffer
   void* data;

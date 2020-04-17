@@ -46,6 +46,7 @@ void Main::initVulkan()
   r.createTextureImageView();
   r.createTextureSampler();
   r.createVertexBuffer();
+  r.createInstanceBuffer();
   r.createIndexBuffer();
   r.createUniformBuffers();
   r.createDescriptorPool();
@@ -168,6 +169,9 @@ void Main::cleanup()
 
   vkDestroyBuffer(r.device, r.index_buffer, nullptr);
   vkFreeMemory(r.device, r.index_buffer_mem, nullptr);
+
+  vkDestroyBuffer(r.device, r.instance_buffer, nullptr);
+  vkFreeMemory(r.device, r.instance_buffer_mem, nullptr);
 
   vkDestroyBuffer(r.device, r.vertex_buffer, nullptr);
   vkFreeMemory(r.device, r.vertex_buffer_mem, nullptr);
