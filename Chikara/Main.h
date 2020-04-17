@@ -4,7 +4,7 @@
 class Main
 {
   public:
-    void run();
+    void run(int argc, char** argv);
     void recreateSwapChain();
   private:
     void initWindow();

@@ -3,9 +3,13 @@
 Renderer r;
 Midi* midi;
 
-void Main::run()
+void Main::run(int argc, char** argv)
 {
-  midi = new Midi("C:/Users/Kaydax/Documents/Stuff/Midis/tau2.5.9.mid");
+  if (argc < 2) {
+    printf("Usage: Chikara.exe [midi]\n");
+    return;
+  }
+  midi = new Midi(argv[1]);
   r.note_buffer = midi->note_buffer;
   initWindow(); //Setup everything for the window
   initVulkan(); //Setup everything for Vulkan
@@ -187,13 +191,13 @@ void Main::cleanup()
 
 #pragma endregion
 
-int main()
+int main(int argc, char** argv)
 {
   Main app; //Get the main class and call it app
 
   try
   {
-    app.run(); //Startup the application
+    app.run(argc, argv); //Startup the application
   } catch(const std::exception & e)
   {
     std::cerr << e.what() << std::endl;
