@@ -70,12 +70,12 @@ struct SwapChainSupportDetails
   std::vector<VkPresentModeKHR> present_modes;
 };
 
-#define VERTEX_ATTRIB_COUNT 3
+#define VERTEX_ATTRIB_COUNT 2
 
 struct Vertex
 {
   glm::vec2 pos;
-  glm::vec3 color;
+  //glm::vec3 color;
   glm::vec2 tex_coord;
 
   static VkVertexInputBindingDescription getBindingDescription()
@@ -98,13 +98,13 @@ struct Vertex
 
     attrib_descriptions[1].binding = VERTEX_BUFFER_BIND_ID;
     attrib_descriptions[1].location = 1;
-    attrib_descriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attrib_descriptions[1].offset = offsetof(Vertex, color);
+    attrib_descriptions[1].format = VK_FORMAT_R32G32_SFLOAT;
+    attrib_descriptions[1].offset = offsetof(Vertex, tex_coord);
 
-    attrib_descriptions[2].binding = VERTEX_BUFFER_BIND_ID;
-    attrib_descriptions[2].location = 2;
-    attrib_descriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-    attrib_descriptions[2].offset = offsetof(Vertex, tex_coord);
+    //attrib_descriptions[2].binding = VERTEX_BUFFER_BIND_ID;
+    //attrib_descriptions[2].location = 2;
+    //attrib_descriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+    //attrib_descriptions[2].offset = offsetof(Vertex, color);
 
     return std::vector(attrib_descriptions.begin(), attrib_descriptions.end());
   }

@@ -19,7 +19,9 @@ struct MidiChunk
 
 struct NoteColor 
 {
-  //idk do some shit here
+  float r;
+  float g;
+  float b;
 };
 
 struct Note
@@ -27,7 +29,7 @@ struct Note
   double start;
   double end;
   int key;
-  NoteColor* color;
+  NoteColor color;
 };
 
 struct Tempo

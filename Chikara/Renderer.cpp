@@ -902,10 +902,10 @@ void Renderer::createVertexBuffer()
 {
   // this data will be replaced with instancing
   Vertex vertices[] {
-    { {0,0},{1,1,1},{0,1} },
-    { {0,0},{1,1,1},{1,1} },
-    { {0,0},{0,0,0},{1,0} },
-    { {0,0},{0,0,0},{0,0} },
+    { {0,1}, {0,1} },
+    { {1,1}, {1,1} },
+    { {1,0}, {1,0} },
+    { {0,0}, {0,0} },
   };
 
   VkBuffer staging_buffer;
@@ -934,7 +934,7 @@ void Renderer::createIndexBuffer()
 {
   uint32_t indices[] = {
     0, 1, 2,
-    1, 2, 3,
+    2, 3, 0,
   };
 
   VkBuffer staging_buffer;
@@ -1043,7 +1043,7 @@ void Renderer::createCommandBuffers()
     render_pass_info.renderArea.extent = swap_chain_extent; //Render area defines where shader loads and stores take place. Anything outside this area are undefined, allowing for better performance
 
     std::array<VkClearValue, 2> clear_values = {};
-    clear_values[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+    clear_values[0].color = { 0.2f, 0.2f, 0.2f, 1.0f };
     clear_values[1].depthStencil = { 1.0f, 0 };
 
     render_pass_info.clearValueCount = static_cast<uint32_t>(clear_values.size());
@@ -1168,6 +1168,7 @@ void Renderer::drawFrame(float time)
 
   if (notes_shown.size() > MAX_NOTES)
     throw std::runtime_error("UNIMPLEMENTED!!!!");
+
   void* data;
   vkMapMemory(device, instance_buffer_mem, 0, sizeof(InstanceData) * MAX_NOTES, 0, &data);
   memset(data, 0, sizeof(InstanceData) * MAX_NOTES);
@@ -1184,7 +1185,7 @@ void Renderer::drawFrame(float time)
     }
     else
     {
-      data_i[i] = { static_cast<float>(n->start), static_cast<float>(n->end), n->key, {1,1,1} };
+      data_i[i] = { static_cast<float>(n->start), static_cast<float>(n->end), n->key, {n->color.r,n->color.g,n->color.b} };
     }
   }
 

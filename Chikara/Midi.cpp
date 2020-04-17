@@ -1,5 +1,23 @@
 #include "Midi.h"
 
+NoteColor colors[16] = {
+  {51 / 255.0f, 102 / 255.0f, 255 / 255.0f},
+  {255 / 255.0f, 126 / 255.0f, 51 / 255.0f},
+  {51 / 255.0f, 255 / 255.0f, 102 / 255.0f},
+  {255 / 255.0f, 51 / 255.0f, 129 / 255.0f},
+  {51 / 255.0f, 255 / 255.0f, 255 / 255.0f},
+  {228 / 255.0f, 51 / 255.0f, 255 / 255.0f},
+  {153 / 255.0f, 255 / 255.0f, 51 / 255.0f},
+  {75 / 255.0f, 51 / 255.0f, 255 / 255.0f},
+  {255 / 255.0f, 204 / 255.0f, 51 / 255.0f},
+  {51 / 255.0f, 180 / 255.0f, 255 / 255.0f},
+  {255 / 255.0f, 51 / 255.0f, 51 / 255.0f},
+  {51 / 255.0f, 255 / 255.0f, 177 / 255.0f},
+  {255 / 255.0f, 51 / 255.0f, 204 / 255.0f},
+  {78 / 255.0f, 255 / 255.0f, 51 / 255.0f},
+  {153 / 255.0f, 51 / 255.0f, 255 / 255.0f},
+  {231 / 255.0f, 255 / 255.0f, 51 / 255.0f}
+};
 
 #pragma region Midi Class
 
@@ -380,7 +398,7 @@ void MidiTrack::deleteNoteStacks()
       delete note_stacks[i];
     }
     delete[] note_stacks;
-    note_stacks == NULL;
+    note_stacks = NULL;
   }
 }
 
@@ -595,7 +613,7 @@ void MidiTrack::parseEvent2ElectricBoogaloo(list<Note*>** global_notes)
         {
 
           Note* n = new Note();
-          //n.color = sdjgkvnskjsn;
+          n->color = colors[channel];
           n->start = time;
           n->end = -1;
           n->key = key;
