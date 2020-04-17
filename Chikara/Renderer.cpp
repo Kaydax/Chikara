@@ -896,7 +896,7 @@ void Renderer::transitionImageLayout(VkImage img, VkFormat format, VkImageLayout
 
 void Renderer::createVertexBuffer()
 {
-  VkDeviceSize buffer_size = sizeof(vertices[0]) * VERTEX_BUFFER_SIZE * 4;
+  VkDeviceSize buffer_size = sizeof(Vertex) * VERTEX_BUFFER_SIZE * 4;
 
   //VkBuffer staging_buffer;
   //VkDeviceMemory staging_buffer_mem;
@@ -1166,16 +1166,19 @@ void Renderer::drawFrame(float time)
     }
   }
 
-  VkDeviceSize buffer_size = sizeof(vertices[0]) * notes_shown.size() * 4; //VERTEX_BUFFER_SIZE
+  VkDeviceSize buffer_size = sizeof(Vertex) * notes_shown.size() * 4; //VERTEX_BUFFER_SIZE
+  if (notes_shown.size() > VERTEX_BUFFER_SIZE)
+      throw std::runtime_error("UNIMPLEMENTED!!!!");
   void* data;
-  vkMapMemory(device, vertex_buffer_mem, 0, buffer_size, 0, &data);
+  vkMapMemory(device, vertex_buffer_mem, 0, sizeof(Vertex) * VERTEX_BUFFER_SIZE * 4, 0, &data);
+  memset(data, 0, sizeof(Vertex) * VERTEX_BUFFER_SIZE * 4);
 
   Vertex* data_v = (Vertex*)data;
   //cout << endl << "Notes playing: " << notes_shown.size();
 
-  for(int i = 0; i < notes_shown.size(); i++)
+  for (auto [it, i] = std::tuple{ notes_shown.begin(), 0 }; it != notes_shown.end(); it++, i++)
   {
-    Note* n = notes_shown[i];
+    Note* n = *it;
     if(time >= n->end)
     {
       data_v[i * 4 + 0] = { {0,0},{1,1,1},{0,1} };
@@ -1197,16 +1200,9 @@ void Renderer::drawFrame(float time)
     }
   }
 
-  for(int i = notes_shown.size() - 1; i >= 0; i--)
-  {
-    Note* n = notes_shown[i];
-    if(time >= n->end)
-    {
-      notes_shown.erase(notes_shown.begin() + i);
-      //notes_shown.clear();
-      //i--;
-    }
-  }
+  notes_shown.remove_if([=](auto n) {
+    return time >= n->end;
+  });
 
   //memcpy(data, data_v, (size_t)buffer_size);
   vkUnmapMemory(device, vertex_buffer_mem);

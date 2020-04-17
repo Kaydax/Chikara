@@ -188,7 +188,7 @@ class Renderer
 
     std::vector<VkSemaphore> next_step_semaphores;
 
-    std::vector<Note*> notes_shown;
+    std::list<Note*> notes_shown;
 
     bool framebuffer_resized = false;
 
