@@ -33,11 +33,11 @@ void main() {
         vtx_pos.y = noteStart - ubo.time;
         break;
     case 2:
-        vtx_pos.x = (float(noteKey) / 256.0) + (1 / 256.0);
+        vtx_pos.x = (float(noteKey) / 256.0);
         vtx_pos.y = noteEnd - ubo.time;
         break;
     case 3:
-        vtx_pos.x = float(noteKey) / 256.0;
+        vtx_pos.x = float(noteKey) / 256.0 + (1 / 256.0);
         vtx_pos.y = noteEnd - ubo.time;
         break;
     }
