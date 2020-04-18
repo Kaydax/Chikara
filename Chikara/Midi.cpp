@@ -544,14 +544,10 @@ void MidiTrack::parseEvent1()
 
             switch(command2)
             {
-              case 0x2F:
-                // End of track
-                ended = true;
-                break;
               case 0x51:
               {
                 uint32_t tempo = 0;
-                for(int i = 0; i != 3; i++)
+                for (int i = 0; i != 3; i++)
                   tempo = (uint32_t)((tempo << 8) | reader->readByte());
                 //Tempo
 
@@ -561,16 +557,38 @@ void MidiTrack::parseEvent1()
                 tempo_events.push_back(t);
                 break;
               }
+              // huge block of copy + paste below, until these two functions get merged...
+              case 0x01: // Text
+              case 0x02: // Copyright info
               case 0x03: // Track name
+              case 0x04: // Track instrument name
+              case 0x05: // Lyric
+              case 0x06: // Marker
+              case 0x07: // Cue point
               case 0x7F: // Sequencer-specific information
                 reader->skipBytes(val);
                 break;
               case 0x20: // MIDI Channel prefix
                 reader->skipBytes(1);
                 break;
+              case 0x21: // MIDI Port
+                reader->skipBytes(1);
+                break;
+              case 0x2F:
+                // End of track
+                ended = true;
+                break;
+              case 0x54:
+                // SMPTE Offset
+                reader->skipBytes(5);
+                break;
               case 0x58:
                 // Time signature
                 reader->skipBytes(4);
+                break;
+              case 0x59:
+                // Key signature
+                reader->skipBytes(2);
                 break;
 
               default:
@@ -731,9 +749,6 @@ void MidiTrack::parseEvent2ElectricBoogaloo(list<Note*>** global_notes)
 
             switch(command2)
             {
-              case 0x2F:
-                ended = true;
-                break;
               case 0x51:
               {
                 uint32_t tempo = 0;
@@ -742,19 +757,41 @@ void MidiTrack::parseEvent2ElectricBoogaloo(list<Note*>** global_notes)
                 //Tempo
                 break;
               }
+              case 0x01: // Text
+              case 0x02: // Copyright info
               case 0x03: // Track name
+              case 0x04: // Track instrument name
+              case 0x05: // Lyric
+              case 0x06: // Marker
+              case 0x07: // Cue point
               case 0x7F: // Sequencer-specific information
                 reader->skipBytes(val);
                 break;
               case 0x20: // MIDI Channel prefix
                 reader->skipBytes(1);
                 break;
+              case 0x21: // MIDI Port
+                reader->skipBytes(1);
+                break;
+              case 0x2F:
+                // End of track
+                ended = true;
+                break;
+              case 0x54:
+                // SMPTE Offset
+                reader->skipBytes(5);
+                break;
               case 0x58:
                 // Time signature
                 reader->skipBytes(4);
                 break;
+              case 0x59:
+                // Key signature
+                reader->skipBytes(2);
+                break;
               default:
-                throw "yell at kaydax for making these two different functions";
+                printf("%x\n", command2);
+                throw "yell at kaydax for making these two different functions\n";
                 break;
               }
             }
