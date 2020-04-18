@@ -134,27 +134,26 @@ void Midi::loadMidi()
 
     MidiTrack** parse_tracks = new MidiTrack * [track_count];
 
-    //concurrency::parallel_for(uint32_t(0), track_count, [&](uint32_t i)
-    for (int i = 0; i < track_count; i++)
-    {
-      MidiTrack* track = new MidiTrack(&file_stream, tracks[i].start, tracks[i].length, 100000, i, ppq, &mtx);
-
-      parse_tracks[i] = track;
-
-      while(!track->ended)
+    concurrency::parallel_for(uint32_t(0), track_count, [&](uint32_t i)
       {
-        track->parseDelta();
-        track->parseEvent1();
-      }
+        MidiTrack* track = new MidiTrack(&file_stream, tracks[i].start, tracks[i].length, 100000, i, ppq, &mtx);
 
-      mtx.lock();
-      tc += track->tempo_events.size();
-      tn++;
+        parse_tracks[i] = track;
 
-      std::cout << "\nParsed track " << tn << " note count " << track->notes_parsed;
-      nc += (uint64_t)track->notes_parsed;
-      mtx.unlock();
-    }
+        while (!track->ended)
+        {
+          track->parseDelta();
+          track->parseEvent1();
+        }
+
+        mtx.lock();
+        tc += track->tempo_events.size();
+        tn++;
+
+        std::cout << "\nParsed track " << tn << " note count " << track->notes_parsed;
+        nc += (uint64_t)track->notes_parsed;
+        mtx.unlock();
+      });
 
     /*for(int i = 0; i < track_count; i++)
     {
@@ -361,10 +360,15 @@ void BufferedReader::read(uint8_t* dst, size_t size)
   buffer_pos += size;
 }
 
-uint8_t BufferedReader::readByte() {
+uint8_t BufferedReader::readByte()
+{
   uint8_t ret;
   read(&ret, 1);
   return ret;
+}
+
+void BufferedReader::skipBytes(size_t size) {
+  seek(size, SEEK_CUR);
 }
 
 #pragma endregion
@@ -557,13 +561,22 @@ void MidiTrack::parseEvent1()
                 tempo_events.push_back(t);
                 break;
               }
+              case 0x03: // Track name
+              case 0x7F: // Sequencer-specific information
+                reader->skipBytes(val);
+                break;
+              case 0x20: // MIDI Channel prefix
+                reader->skipBytes(1);
+                break;
+              case 0x58:
+                // Time signature
+                reader->skipBytes(4);
+                break;
+
               default:
               {
-                printf("Unknown meta-event 0x%x\n", command2);
-                for(int i = 0; i < val; i++)
-                {
-                  reader->readByte();
-                }
+                printf("\nUnknown meta-event 0x%x", command2);
+                reader->skipBytes(val);
                 break;
               }
             }
@@ -604,7 +617,7 @@ void MidiTrack::parseEvent2ElectricBoogaloo(list<Note*>** global_notes)
     uint8_t command = reader->readByte();
     if(command < 0x80)
     {
-      reader->seek(-1, SEEK_SET);
+      reader->seek(-1, SEEK_CUR);
       command = prev_command;
     }
 
@@ -729,17 +742,23 @@ void MidiTrack::parseEvent2ElectricBoogaloo(list<Note*>** global_notes)
                 //Tempo
                 break;
               }
+              case 0x03: // Track name
+              case 0x7F: // Sequencer-specific information
+                reader->skipBytes(val);
+                break;
+              case 0x20: // MIDI Channel prefix
+                reader->skipBytes(1);
+                break;
+              case 0x58:
+                // Time signature
+                reader->skipBytes(4);
+                break;
               default:
-              {
-                for(int i = 0; i < val; i++)
-                {
-                  reader->readByte();
-                }
+                throw "yell at kaydax for making these two different functions";
                 break;
               }
             }
             break;
-          }
           case 0xF0:
             while(reader->readByte() != 0xF7);
             break;
