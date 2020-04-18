@@ -13,6 +13,10 @@ const float PI = 3.1415926535897932384626;
 const float border = 0.001;
 
 void main() {
+  if (vNoteSize.y == 0.0) {
+    // uninitialized outColor doesn't matter if not rendering anything
+    return;
+  }
   vec2 vUV = fragTexCoord;
   float t = sin(vUV.x * PI);
   vec3 color = vec3(fragColor * t);

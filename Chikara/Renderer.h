@@ -27,7 +27,7 @@
 
 #pragma endregion
 
-#define MAX_NOTES 16384
+#define MAX_NOTES 65536
 #define VERTEX_BUFFER_BIND_ID 0
 #define INSTANCE_BUFFER_BIND_ID 1
 
