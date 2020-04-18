@@ -43,10 +43,10 @@ class BufferedReader
   public:
     BufferedReader(ifstream* _file_stream, size_t _start, size_t _length, uint32_t _buffer_size, std::mutex* _mtx);
     ~BufferedReader();
+    void seek(int64_t offset, int origin);
+    void read(uint8_t* dst, size_t size);
     uint8_t readByte();
-    uint8_t readByteFast();
-
-    int push_back = -1;
+    void skipBytes(size_t size);
   private:
     void updateBuffer();
 
@@ -57,6 +57,7 @@ class BufferedReader
     uint8_t* buffer;
     uint32_t buffer_size;
     uint32_t buffer_pos = 0;
+    size_t buffer_start;
     std::mutex* mtx;
 };
 
@@ -84,7 +85,6 @@ class MidiTrack
     uint16_t ppq = 0;
     uint32_t track_num = 0;
   private:
-    int push_back = -1;
     uint8_t prev_command = 0;
     BufferedReader* reader = NULL;
 

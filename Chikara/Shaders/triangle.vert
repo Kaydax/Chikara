@@ -107,6 +107,11 @@ float getNoteOffset(int note)
 }
 
 void main() {
+    if (noteStart == noteEnd) {
+        gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+        vNoteSize = vec2(0.0, 0.0);
+        return;
+    }
     vec2 vtx_pos;
     float flotes = float(N_NOTES); //float notes
     bool black = isBlackKey(noteKey);

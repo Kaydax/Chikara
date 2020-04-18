@@ -258,13 +258,15 @@ VkSurfaceFormatKHR Renderer::chooseSwapSurfaceFormat(const std::vector<VkSurface
 //Choose what kind of rendering mode the surface should be
 VkPresentModeKHR Renderer::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& available_present_modes)
 {
+  /*
   for(const auto& available_present_mode : available_present_modes)
   {
-    if(available_present_mode == VK_PRESENT_MODE_IMMEDIATE_KHR)
+    if(available_present_mode == VK_PRESENT_MODE_MAILBOX_KHR)
     {
       return available_present_mode;
     }
   }
+  */
 
   return VK_PRESENT_MODE_FIFO_KHR;
 }
@@ -1150,6 +1152,8 @@ void Renderer::drawFrame(float time)
         break;
       }
       Note* n = notes->front();
+      if (n->end == -1)
+        break;
       if(n->end < n->start)
       {
         throw std::runtime_error("The fucking midi broke");

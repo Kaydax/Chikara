@@ -36,30 +36,30 @@ Midi::Midi(const char* file_name)
   {
     double seconds = 0;
     uint64_t time = 0;
-    for(int i = 0; i < track_count; i++)
-    {
-      readers[i]->parseDelta();
-    }
-    while(true)
-    {
+    while (true) {
       bool all_ended = true;
-      for(int i = 0; i < track_count; i++)
+      for (int i = 0; i < track_count; i++)
       {
         MidiTrack* track = readers[i];
-        if(track->ended)
+        if (track->ended)
         {
-          if(track->time > seconds) seconds = track->time;
+          if (track->time > seconds) seconds = track->time;
           continue;
         }
         all_ended = false;
-        if(!track->delta_parsed) track->parseDeltaTime();
-        if(time >= track->tick_time)
-        {
+        if (!track->delta_parsed)
+          track->parseDeltaTime();
+        if (time < track->tick_time)
+          continue;
+        while (time >= track->tick_time) {
           track->parseEvent2ElectricBoogaloo(note_buffer);
+          track->parseDeltaTime();
+          if (track->ended)
+            break;
         }
       }
       time++;
-      if(all_ended) break;
+      if (all_ended) break;
     }
 
     std::cout << "Finished parsing\n";
@@ -135,25 +135,25 @@ void Midi::loadMidi()
     MidiTrack** parse_tracks = new MidiTrack * [track_count];
 
     concurrency::parallel_for(uint32_t(0), track_count, [&](uint32_t i)
-    {
-      MidiTrack* track = new MidiTrack(&file_stream, tracks[i].start, tracks[i].length, 100000, i, ppq, &mtx);
-
-      parse_tracks[i] = track;
-
-      while(!track->ended)
       {
-        track->parseDelta();
-        track->parseEvent1();
-      }
+        MidiTrack* track = new MidiTrack(&file_stream, tracks[i].start, tracks[i].length, 100000, i, ppq, &mtx);
 
-      mtx.lock();
-      tc += track->tempo_events.size();
-      tn++;
+        parse_tracks[i] = track;
 
-      std::cout << "\nParsed track " << tn << " note count " << track->notes_parsed;
-      nc += (uint64_t)track->notes_parsed;
-      mtx.unlock();
-    });
+        while (!track->ended)
+        {
+          track->parseDelta();
+          track->parseEvent1();
+        }
+
+        mtx.lock();
+        tc += track->tempo_events.size();
+        tn++;
+
+        std::cout << "\nParsed track " << tn << " note count " << track->notes_parsed;
+        nc += (uint64_t)track->notes_parsed;
+        mtx.unlock();
+      });
 
     /*for(int i = 0; i < track_count; i++)
     {
@@ -277,7 +277,6 @@ uint32_t Midi::parseInt()
 #pragma endregion
 
 #pragma region BufferedReader class
-
 BufferedReader::BufferedReader(ifstream* _file_stream, size_t _start, size_t _length, uint32_t _buffer_size, std::mutex* _mtx)
 {
   file_stream = _file_stream;
@@ -286,9 +285,9 @@ BufferedReader::BufferedReader(ifstream* _file_stream, size_t _start, size_t _le
   buffer_size = _buffer_size;
   pos = start;
   mtx = _mtx;
+  buffer_start = start;
 
-  if(buffer_size > length) buffer_size = (uint32_t)length;
-
+  if (buffer_size > length) buffer_size = (uint32_t)length;
   buffer = new uint8_t[buffer_size];
 
   updateBuffer();
@@ -299,41 +298,77 @@ BufferedReader::~BufferedReader()
   delete[] buffer;
 }
 
-uint8_t BufferedReader::readByte()
-{
-  if(push_back != -1)
-  {
-    uint8_t b = (uint8_t)push_back;
-    push_back = -1;
-    return b;
-  }
-  return readByteFast();
-}
-
-uint8_t BufferedReader::readByteFast()
-{
-  if(buffer_pos >= buffer_size)
-  {
-    updateBuffer();
-    buffer_pos = 0;
-  }
-
-  return buffer[buffer_pos++];
-}
-
 void BufferedReader::updateBuffer()
 {
   uint32_t read = buffer_size;
 
-  if((pos + read) > (start + length)) read = start + length - pos;
+  if ((pos + read) > (start + length))
+    read = start + length - pos;
 
-  if(read == 0) throw "\nOutside the buffer";
-  
+  if (read == 0)
+    throw "\nOutside the buffer";
+
   mtx->lock();
   file_stream->seekg(pos, ios::beg);
   file_stream->read((char*)buffer, read);
-  pos += read;
   mtx->unlock();
+  buffer_start = pos;
+  buffer_pos = 0;
+}
+
+// origin = fseek origin (SEEK_SET or SEEK_CUR, no need for SEEK_END)
+// storage as int64 is fine, nobody will have a midi over 9223 pb
+void BufferedReader::seek(int64_t offset, int origin)
+{
+  if (origin != SEEK_SET && origin != SEEK_CUR)
+    throw "Invalid seek origin!";
+
+  int64_t real_offset = offset;
+  if (origin == SEEK_SET)
+    real_offset += start;
+  else
+    real_offset += pos;
+
+  if (real_offset < (int64_t)start)
+    throw "Attempted to seek before start!";
+  if (real_offset > start + length)
+    throw "Attempted to seek past end!";
+
+  pos = real_offset;
+
+  // buffer doesn't have to be remade if seeking between it already
+  if (buffer_start <= real_offset && real_offset < buffer_start + buffer_size) {
+    buffer_pos = pos - buffer_start;
+    return;
+  }
+
+  updateBuffer();
+}
+
+void BufferedReader::read(uint8_t* dst, size_t size)
+{
+  if (pos + size > start + length)
+    throw "Attempted to read past end!";
+  if (size > buffer_size)
+    throw "(UMIMPLEMENTED) Requested read size is larger than the buffer size!";
+
+  if (buffer_start + buffer_pos + size > buffer_start + buffer_size)
+    updateBuffer();
+
+  memcpy(dst, buffer + buffer_pos, size);
+  pos += size;
+  buffer_pos += size;
+}
+
+uint8_t BufferedReader::readByte()
+{
+  uint8_t ret;
+  read(&ret, 1);
+  return ret;
+}
+
+void BufferedReader::skipBytes(size_t size) {
+  seek(size, SEEK_CUR);
 }
 
 #pragma endregion
@@ -359,7 +394,7 @@ void MidiTrack::parseDelta()
   {
     uint8_t c;
     uint32_t val = 0;
-    while((c = reader->readByteFast()) > 0x7F)
+    while((c = reader->readByte()) > 0x7F)
     {
       val = (val << 7) | (c & 0x7F);
     }
@@ -409,7 +444,7 @@ void MidiTrack::parseDeltaTime()
   {
     uint8_t c;
     uint32_t val = 0;
-    while((c = reader->readByteFast()) > 0x7F)
+    while((c = reader->readByte()) > 0x7F)
     {
       val = (val << 7) | (c & 0x7F);
     }
@@ -451,10 +486,10 @@ void MidiTrack::parseEvent1()
   try
   {
     delta_parsed = false;
-    uint8_t command = reader->readByteFast();
+    uint8_t command = reader->readByte();
     if(command < 0x80)
     {
-      push_back = command;
+      reader->seek(-1, SEEK_CUR);
       command = prev_command;
     }
 
@@ -467,19 +502,19 @@ void MidiTrack::parseEvent1()
     {
       case 0x80:
         reader->readByte();
-        reader->readByteFast();
+        reader->readByte();
         break;
       case 0x90:
         reader->readByte();
-        if(reader->readByteFast() > 0) notes_parsed++;
+        if(reader->readByte() > 0) notes_parsed++;
         break;
       case 0xA0:
         reader->readByte();
-        reader->readByteFast();
+        reader->readByte();
         break;
       case 0xB0:
         reader->readByte();
-        reader->readByteFast();
+        reader->readByte();
         break;
       case 0xC0:
         reader->readByte();
@@ -489,7 +524,7 @@ void MidiTrack::parseEvent1()
         break;
       case 0xE0:
         reader->readByte();
-        reader->readByteFast();
+        reader->readByte();
         break;
       default:
       {
@@ -501,7 +536,7 @@ void MidiTrack::parseEvent1()
 
             uint8_t c;
             uint32_t val = 0;
-            while((c = reader->readByteFast()) > 0x7F)
+            while((c = reader->readByte()) > 0x7F)
             {
               val = (val << 7) | (c & 0x7F);
             }
@@ -509,14 +544,11 @@ void MidiTrack::parseEvent1()
 
             switch(command2)
             {
-              case 0x2F:
-                ended = true;
-                break;
               case 0x51:
               {
                 uint32_t tempo = 0;
-                for(int i = 0; i != 3; i++)
-                  tempo = (uint32_t)((tempo << 8) | reader->readByteFast());
+                for (int i = 0; i != 3; i++)
+                  tempo = (uint32_t)((tempo << 8) | reader->readByte());
                 //Tempo
 
                 Tempo t;
@@ -525,12 +557,48 @@ void MidiTrack::parseEvent1()
                 tempo_events.push_back(t);
                 break;
               }
+              // huge block of copy + paste below, until these two functions get merged...
+              case 0x00:
+                // Sequence number
+                reader->skipBytes(2);
+                break;
+              case 0x01: // Text
+              case 0x02: // Copyright info
+              case 0x03: // Track name
+              case 0x04: // Track instrument name
+              case 0x05: // Lyric
+              case 0x06: // Marker
+              case 0x07: // Cue point
+              case 0x7F: // Sequencer-specific information
+                reader->skipBytes(val);
+                break;
+              case 0x20: // MIDI Channel prefix
+                reader->skipBytes(1);
+                break;
+              case 0x21: // MIDI Port
+                reader->skipBytes(1);
+                break;
+              case 0x2F:
+                // End of track
+                ended = true;
+                break;
+              case 0x54:
+                // SMPTE Offset
+                reader->skipBytes(5);
+                break;
+              case 0x58:
+                // Time signature
+                reader->skipBytes(4);
+                break;
+              case 0x59:
+                // Key signature
+                reader->skipBytes(2);
+                break;
+
               default:
               {
-                for(int i = 0; i < val; i++)
-                {
-                  reader->readByteFast();
-                }
+                printf("\nUnknown meta-event 0x%x", command2);
+                reader->skipBytes(val);
                 break;
               }
             }
@@ -541,7 +609,7 @@ void MidiTrack::parseEvent1()
             break;
           case 0xF2:
             reader->readByte();
-            reader->readByteFast();
+            reader->readByte();
             break;
           case 0xF3:
             reader->readByte();
@@ -568,10 +636,10 @@ void MidiTrack::parseEvent2ElectricBoogaloo(list<Note*>** global_notes)
   try
   {
     delta_parsed = false;
-    uint8_t command = reader->readByteFast();
+    uint8_t command = reader->readByte();
     if(command < 0x80)
     {
-      push_back = command;
+      reader->seek(-1, SEEK_CUR);
       command = prev_command;
     }
 
@@ -585,7 +653,7 @@ void MidiTrack::parseEvent2ElectricBoogaloo(list<Note*>** global_notes)
       case 0x80:
       {
         uint8_t key = reader->readByte();
-        uint8_t vel = reader->readByteFast();
+        uint8_t vel = reader->readByte();
         if(note_stacks == NULL) return;
 
         list<Note*>* stack = note_stacks[channel * 256 + key];
@@ -603,7 +671,7 @@ void MidiTrack::parseEvent2ElectricBoogaloo(list<Note*>** global_notes)
       case 0x90:
       {
         uint8_t key = reader->readByte();
-        uint8_t vel = reader->readByteFast();
+        uint8_t vel = reader->readByte();
         // Note On
 
         if(note_stacks == NULL) initNoteStacks();
@@ -637,14 +705,14 @@ void MidiTrack::parseEvent2ElectricBoogaloo(list<Note*>** global_notes)
       case 0xA0:
       {
         uint8_t key = reader->readByte();
-        uint8_t vel = reader->readByteFast();
+        uint8_t vel = reader->readByte();
         // Polyphonic Pressure
         break;
       }
       case 0xB0:
       {
         uint8_t controller = reader->readByte();
-        uint8_t value = reader->readByteFast();
+        uint8_t value = reader->readByte();
         // Controller
         break;
       }
@@ -663,11 +731,11 @@ void MidiTrack::parseEvent2ElectricBoogaloo(list<Note*>** global_notes)
       case 0xE0:
       {
         uint8_t val1 = reader->readByte();
-        uint8_t val2 = reader->readByteFast();
+        uint8_t val2 = reader->readByte();
         // Pitch Wheel
         break;
       }
-      default:
+      case 0xF0:
       {
         switch(command)
         {
@@ -677,7 +745,7 @@ void MidiTrack::parseEvent2ElectricBoogaloo(list<Note*>** global_notes)
 
             uint8_t c;
             uint32_t val = 0;
-            while((c = reader->readByteFast()) > 0x7F)
+            while((c = reader->readByte()) > 0x7F)
             {
               val = (val << 7) | (c & 0x7F);
             }
@@ -685,43 +753,75 @@ void MidiTrack::parseEvent2ElectricBoogaloo(list<Note*>** global_notes)
 
             switch(command2)
             {
-              case 0x2F:
-                ended = true;
-                break;
               case 0x51:
               {
                 uint32_t tempo = 0;
                 for(int i = 0; i != 3; i++)
-                  tempo = (uint32_t)((tempo << 8) | reader->readByteFast());
+                  tempo = (uint32_t)((tempo << 8) | reader->readByte());
                 //Tempo
                 break;
               }
+              case 0x00:
+                // Sequence number
+                reader->skipBytes(2);
+                break;
+              case 0x01: // Text
+              case 0x02: // Copyright info
+              case 0x03: // Track name
+              case 0x04: // Track instrument name
+              case 0x05: // Lyric
+              case 0x06: // Marker
+              case 0x07: // Cue point
+              case 0x7F: // Sequencer-specific information
+                reader->skipBytes(val);
+                break;
+              case 0x20: // MIDI Channel prefix
+                reader->skipBytes(1);
+                break;
+              case 0x21: // MIDI Port
+                reader->skipBytes(1);
+                break;
+              case 0x2F:
+                // End of track
+                ended = true;
+                break;
+              case 0x54:
+                // SMPTE Offset
+                reader->skipBytes(5);
+                break;
+              case 0x58:
+                // Time signature
+                reader->skipBytes(4);
+                break;
+              case 0x59:
+                // Key signature
+                reader->skipBytes(2);
+                break;
               default:
-              {
-                for(int i = 0; i < val; i++)
-                {
-                  reader->readByteFast();
-                }
+                printf("%x\n", command2);
+                throw "yell at kaydax for making these two different functions\n";
                 break;
               }
             }
             break;
-          }
           case 0xF0:
             while(reader->readByte() != 0xF7);
             break;
           case 0xF2:
             reader->readByte();
-            reader->readByteFast();
+            reader->readByte();
             break;
           case 0xF3:
             reader->readByte();
             break;
           default:
+            throw std::runtime_error("Unknown system event!");
             break;
         }
         break;
       }
+      default:
+        throw std::runtime_error("Unknown event!");
     }
   } catch(const char* e)
   {
