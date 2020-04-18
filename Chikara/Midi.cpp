@@ -36,30 +36,30 @@ Midi::Midi(const char* file_name)
   {
     double seconds = 0;
     uint64_t time = 0;
-    for(int i = 0; i < track_count; i++)
-    {
-      readers[i]->parseDelta();
-    }
-    while(true)
-    {
+    while (true) {
       bool all_ended = true;
-      for(int i = 0; i < track_count; i++)
+      for (int i = 0; i < track_count; i++)
       {
         MidiTrack* track = readers[i];
-        if(track->ended)
+        if (track->ended)
         {
-          if(track->time > seconds) seconds = track->time;
+          if (track->time > seconds) seconds = track->time;
           continue;
         }
         all_ended = false;
-        if(!track->delta_parsed) track->parseDeltaTime();
-        if(time >= track->tick_time)
-        {
+        if (!track->delta_parsed)
+          track->parseDeltaTime();
+        if (time < track->tick_time)
+          continue;
+        while (time >= track->tick_time) {
           track->parseEvent2ElectricBoogaloo(note_buffer);
+          track->parseDeltaTime();
+          if (track->ended)
+            break;
         }
       }
       time++;
-      if(all_ended) break;
+      if (all_ended) break;
     }
 
     std::cout << "Finished parsing\n";
@@ -558,6 +558,10 @@ void MidiTrack::parseEvent1()
                 break;
               }
               // huge block of copy + paste below, until these two functions get merged...
+              case 0x00:
+                // Sequence number
+                reader->skipBytes(2);
+                break;
               case 0x01: // Text
               case 0x02: // Copyright info
               case 0x03: // Track name
@@ -757,6 +761,10 @@ void MidiTrack::parseEvent2ElectricBoogaloo(list<Note*>** global_notes)
                 //Tempo
                 break;
               }
+              case 0x00:
+                // Sequence number
+                reader->skipBytes(2);
+                break;
               case 0x01: // Text
               case 0x02: // Copyright info
               case 0x03: // Track name
