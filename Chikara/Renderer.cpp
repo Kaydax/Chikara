@@ -261,7 +261,7 @@ VkPresentModeKHR Renderer::chooseSwapPresentMode(const std::vector<VkPresentMode
 {
   for(const auto& available_present_mode : available_present_modes)
   {
-    if(available_present_mode == VK_PRESENT_MODE_MAILBOX_KHR)
+    if(available_present_mode == VK_PRESENT_MODE_IMMEDIATE_KHR)
     {
       return available_present_mode;
     }
@@ -1011,7 +1011,7 @@ void Renderer::copyBuffer(VkBuffer src_buffer, VkBuffer dst_buffer, VkDeviceSize
 void Renderer::createCommandBuffers()
 {
   //Allocate the command buffer
-  cmd_buffers.resize(swap_chain_framebuffers.size());
+  cmd_buffers.resize(swap_chain_framebuffers.size() * MAX_NOTES_POW);
 
   VkCommandBufferAllocateInfo alloc_info = {};
   alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -1025,50 +1025,53 @@ void Renderer::createCommandBuffers()
   }
 
   //Start recording the command buffer
-  for(size_t i = 0; i < cmd_buffers.size(); i++)
+  for(size_t swap_chain = 0; swap_chain < swap_chain_framebuffers.size(); swap_chain++)
   {
-    VkCommandBufferBeginInfo begin_info = {};
-    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-    if(vkBeginCommandBuffer(cmd_buffers[i], &begin_info) != VK_SUCCESS)
+    for (size_t note_buf_idx = 0; note_buf_idx < MAX_NOTES_POW; note_buf_idx++)
     {
-      throw std::runtime_error("VKERR: Failed to begin recording command buffer!");
-    }
+      VkCommandBufferBeginInfo begin_info = {};
+      begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-    //Start the render pass
-    VkRenderPassBeginInfo render_pass_info = {};
-    render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    render_pass_info.renderPass = render_pass;
-    render_pass_info.framebuffer = swap_chain_framebuffers[i]; //Create a framebuffer for each swap chain image
-    render_pass_info.renderArea.offset = { 0, 0 };
-    render_pass_info.renderArea.extent = swap_chain_extent; //Render area defines where shader loads and stores take place. Anything outside this area are undefined, allowing for better performance
+      if (vkBeginCommandBuffer(cmd_buffers[note_buf_idx + swap_chain * MAX_NOTES_POW], &begin_info) != VK_SUCCESS)
+      {
+        throw std::runtime_error("VKERR: Failed to begin recording command buffer!");
+      }
 
-    std::array<VkClearValue, 2> clear_values = {};
-    clear_values[0].color = { 0.2f, 0.2f, 0.2f, 1.0f };
-    clear_values[1].depthStencil = { 1.0f, 0 };
+      //Start the render pass
+      VkRenderPassBeginInfo render_pass_info = {};
+      render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+      render_pass_info.renderPass = render_pass;
+      render_pass_info.framebuffer = swap_chain_framebuffers[swap_chain]; //Create a framebuffer for each swap chain image
+      render_pass_info.renderArea.offset = { 0, 0 };
+      render_pass_info.renderArea.extent = swap_chain_extent; //Render area defines where shader loads and stores take place. Anything outside this area are undefined, allowing for better performance
 
-    render_pass_info.clearValueCount = static_cast<uint32_t>(clear_values.size());
-    render_pass_info.pClearValues = clear_values.data();
+      std::array<VkClearValue, 2> clear_values = {};
+      clear_values[0].color = { 0.2f, 0.2f, 0.2f, 1.0f };
+      clear_values[1].depthStencil = { 1.0f, 0 };
 
-    //Now the render pass can begin
-    vkCmdBeginRenderPass(cmd_buffers[i], &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+      render_pass_info.clearValueCount = static_cast<uint32_t>(clear_values.size());
+      render_pass_info.pClearValues = clear_values.data();
 
-    vkCmdBindPipeline(cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline);
+      //Now the render pass can begin
+      vkCmdBeginRenderPass(cmd_buffers[note_buf_idx + swap_chain * MAX_NOTES_POW], &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 
-    VkBuffer vertex_buffers[] = { vertex_buffer };
-    VkDeviceSize offsets[] = { 0 };
-    vkCmdBindVertexBuffers(cmd_buffers[i], VERTEX_BUFFER_BIND_ID, 1, vertex_buffers, offsets);
-    vkCmdBindVertexBuffers(cmd_buffers[i], INSTANCE_BUFFER_BIND_ID, 1, &instance_buffer, offsets);
-    vkCmdBindIndexBuffer(cmd_buffers[i], index_buffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdBindDescriptorSets(cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pl_layout, 0, 1, &descriptor_sets[i], 0, nullptr);
+      vkCmdBindPipeline(cmd_buffers[note_buf_idx + swap_chain * MAX_NOTES_POW], VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline);
 
-    vkCmdDrawIndexed(cmd_buffers[i], 6, MAX_NOTES, 0, 0, 0);
+      VkBuffer vertex_buffers[] = { vertex_buffer };
+      VkDeviceSize offsets[] = { 0 };
+      vkCmdBindVertexBuffers(cmd_buffers[note_buf_idx + swap_chain * MAX_NOTES_POW], VERTEX_BUFFER_BIND_ID, 1, vertex_buffers, offsets);
+      vkCmdBindVertexBuffers(cmd_buffers[note_buf_idx + swap_chain * MAX_NOTES_POW], INSTANCE_BUFFER_BIND_ID, 1, &instance_buffer, offsets);
+      vkCmdBindIndexBuffer(cmd_buffers[note_buf_idx + swap_chain * MAX_NOTES_POW], index_buffer, 0, VK_INDEX_TYPE_UINT32);
+      vkCmdBindDescriptorSets(cmd_buffers[note_buf_idx + swap_chain * MAX_NOTES_POW], VK_PIPELINE_BIND_POINT_GRAPHICS, pl_layout, 0, 1, &descriptor_sets[swap_chain], 0, nullptr);
 
-    vkCmdEndRenderPass(cmd_buffers[i]);
+      vkCmdDrawIndexed(cmd_buffers[note_buf_idx + swap_chain * MAX_NOTES_POW], 6, 1 << (note_buf_idx + 1), 0, 0, 0);
 
-    if(vkEndCommandBuffer(cmd_buffers[i]) != VK_SUCCESS)
-    {
-      throw std::runtime_error("VKERR: Failed to record command buffer!");
+      vkCmdEndRenderPass(cmd_buffers[note_buf_idx + swap_chain * MAX_NOTES_POW]);
+
+      if (vkEndCommandBuffer(cmd_buffers[note_buf_idx + swap_chain * MAX_NOTES_POW]) != VK_SUCCESS)
+      {
+        throw std::runtime_error("VKERR: Failed to record command buffer!");
+      }
     }
   }
 }
@@ -1204,6 +1207,14 @@ void Renderer::drawFrame(float time)
     return time >= n->end;
   });
 
+  int note_cmd_buf = 0;
+  for (int i = 0; i < MAX_NOTES_POW; i++) {
+    if (notes_shown.size() <= (1 << (i + 1))) {
+      note_cmd_buf = i;
+      break;
+    }
+  }
+
   //memcpy(data, data_v, (size_t)buffer_size);
   vkUnmapMemory(device, instance_buffer_mem);
 
@@ -1217,7 +1228,7 @@ void Renderer::drawFrame(float time)
   submit_info.pWaitSemaphores = wait_semaphores;
   submit_info.pWaitDstStageMask = wait_stages;
   submit_info.commandBufferCount = 1;
-  submit_info.pCommandBuffers = &cmd_buffers[img_index];
+  submit_info.pCommandBuffers = &cmd_buffers[note_cmd_buf + img_index * MAX_NOTES_POW];
 
   VkSemaphore signal_semaphores[] = { render_fin_semaphore[current_frame] }; //What semaphores we signal once the cmd buffer finished execution
   submit_info.signalSemaphoreCount = 1;
