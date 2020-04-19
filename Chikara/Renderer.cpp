@@ -1185,7 +1185,9 @@ void Renderer::drawFrame(float time)
   InstanceData* data_i = (InstanceData*)data;
   //cout << endl << "Notes playing: " << notes_shown.size();
 
-  for (auto [it, i] = std::tuple{ notes_shown.begin(), 0 }; it != notes_shown.end(); it++, i++)
+  last_notes_shown_count = notes_shown.size();
+
+  for (auto [it, i] = std::tuple{ notes_shown.begin(), 0 }; it != notes_shown.end();)
   {
     Note* n = *it;
     if (!n->noteon_played && time >= n->start) {
@@ -1199,18 +1201,17 @@ void Renderer::drawFrame(float time)
         n->noteoff_played = true;
       }
       data_i[i] = { 0, 0, 0, {0,0,0} };
+      delete n;
+      notes_shown.erase(it++);
+      i++;
     }
     else
     {
       data_i[i] = { static_cast<float>(n->start), static_cast<float>(n->end), n->key, {n->color.r,n->color.g,n->color.b} };
+      it++;
+      i++;
     }
   }
-
-  last_notes_shown_count = notes_shown.size();
-
-  notes_shown.remove_if([=](auto n) {
-    return time >= n->end;
-  });
 
   int note_cmd_buf = 0;
   for (int i = 0; i < MAX_NOTES_MULT; i++) {
