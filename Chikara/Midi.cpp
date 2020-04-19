@@ -24,10 +24,10 @@ NoteColor colors[16] = {
 Midi::Midi(const char* file_name)
 {
   //Open the file, seek to the end of the file and save that to a var, then return to the start of the file
-  file_stream.open(file_name, ios::binary | ios::ate);
-  file_stream.seekg(0, ios::end);
+  file_stream.open(file_name, std::ios::binary | std::ios::ate);
+  file_stream.seekg(0, std::ios::end);
   file_end = file_stream.tellg();
-  file_stream.seekg(0, ios::beg);
+  file_stream.seekg(0, std::ios::beg);
 
   //Load the file
   loadMidi();
@@ -81,7 +81,7 @@ Midi::~Midi()
 {
   for(int i = 0; i < 256; i++)
   {
-    list<Note*>* notes = note_buffer[i];
+    std::list<Note*>* notes = note_buffer[i];
     while(!notes->empty())
     {
       delete notes->front();
@@ -116,7 +116,7 @@ void Midi::loadMidi()
 
       if(length + pos > file_end) length = file_end - pos;
 
-      file_stream.seekg(pos + length, ios::beg);
+      file_stream.seekg(pos + length, std::ios::beg);
 
       MidiChunk chunk;
       chunk.start = pos;
@@ -174,7 +174,7 @@ void Midi::loadMidi()
     }*/
 
     std::cout << "\nTotal tempo events: " << tc;
-    std::cout << "\nTotal notes: " << nc << endl;
+    std::cout << "\nTotal notes: " << nc << std::endl;
 
     tempo_array = new Tempo[tc];
     tempo_count = tc;
@@ -221,10 +221,10 @@ void Midi::loadMidi()
       readers[i]->global_tempo_event_count = tempo_count;
     }
 
-    note_buffer = new list<Note*> * [256];
+    note_buffer = new std::list<Note*> * [256];
     for(int i = 0; i < 256; i++)
     {
-      note_buffer[i] = new list<Note*>();
+      note_buffer[i] = new std::list<Note*>();
     }
 
   } catch(const char* e)
@@ -277,7 +277,7 @@ uint32_t Midi::parseInt()
 #pragma endregion
 
 #pragma region BufferedReader class
-BufferedReader::BufferedReader(ifstream* _file_stream, size_t _start, size_t _length, uint32_t _buffer_size, std::mutex* _mtx)
+BufferedReader::BufferedReader(std::ifstream* _file_stream, size_t _start, size_t _length, uint32_t _buffer_size, std::mutex* _mtx)
 {
   file_stream = _file_stream;
   start = _start;
@@ -309,7 +309,7 @@ void BufferedReader::updateBuffer()
     throw "\nOutside the buffer";
 
   mtx->lock();
-  file_stream->seekg(pos, ios::beg);
+  file_stream->seekg(pos, std::ios::beg);
   file_stream->read((char*)buffer, read);
   mtx->unlock();
   buffer_start = pos;
@@ -375,7 +375,7 @@ void BufferedReader::skipBytes(size_t size) {
 
 #pragma region Midi Track
 
-MidiTrack::MidiTrack(ifstream* _file_stream, size_t _start, size_t _length, uint32_t _buffer_size, uint32_t _track_num, uint16_t _ppq, std::mutex* _mtx)
+MidiTrack::MidiTrack(std::ifstream* _file_stream, size_t _start, size_t _length, uint32_t _buffer_size, uint32_t _track_num, uint16_t _ppq, std::mutex* _mtx)
 {
   reader = new BufferedReader(_file_stream, _start, _length, _buffer_size, _mtx);
   ppq = _ppq;
@@ -410,10 +410,10 @@ void MidiTrack::parseDelta()
 
 void MidiTrack::initNoteStacks()
 {
-  note_stacks = new list<Note*> * [16 * 256];
+  note_stacks = new std::list<Note*> * [16 * 256];
   for(int i = 0; i < 16 * 256; i++)
   {
-    note_stacks[i] = new list<Note*>();
+    note_stacks[i] = new std::list<Note*>();
   }
 }
 
@@ -423,7 +423,7 @@ void MidiTrack::deleteNoteStacks()
   {
     for(int i = 0; i < 256 * 16; i++)
     {
-      list<Note*>* stack = note_stacks[i];
+      std::list<Note*>* stack = note_stacks[i];
       while(!stack->empty())
       {
         Note* n = stack->front();
@@ -627,7 +627,7 @@ void MidiTrack::parseEvent1()
   }
 }
 
-void MidiTrack::parseEvent2ElectricBoogaloo(list<Note*>** global_notes)
+void MidiTrack::parseEvent2ElectricBoogaloo(std::list<Note*>** global_notes)
 {
   if(ended)
   {
@@ -656,7 +656,7 @@ void MidiTrack::parseEvent2ElectricBoogaloo(list<Note*>** global_notes)
         uint8_t vel = reader->readByte();
         if(note_stacks == NULL) return;
 
-        list<Note*>* stack = note_stacks[channel * 256 + key];
+        std::list<Note*>* stack = note_stacks[channel * 256 + key];
 
         if(!stack->empty())
         {
@@ -675,7 +675,7 @@ void MidiTrack::parseEvent2ElectricBoogaloo(list<Note*>** global_notes)
         // Note On
 
         if(note_stacks == NULL) initNoteStacks();
-        list<Note*>* stack = note_stacks[channel * 256 + key];
+        std::list<Note*>* stack = note_stacks[channel * 256 + key];
 
         if(vel > 0)
         {
@@ -685,6 +685,8 @@ void MidiTrack::parseEvent2ElectricBoogaloo(list<Note*>** global_notes)
           n->start = time;
           n->end = -1;
           n->key = key;
+          n->channel = channel;
+          n->velocity = vel;
 
           stack->push_back(n);
           global_notes[key]->push_back(n);

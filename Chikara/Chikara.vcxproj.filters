@@ -27,6 +27,9 @@
     <ClCompile Include="Midi.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="KDMAPI.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Renderer.h">
@@ -36,6 +39,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Midi.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="KDMAPI.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

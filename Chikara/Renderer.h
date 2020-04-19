@@ -34,7 +34,7 @@
 const uint32_t width = 800;
 const uint32_t height = 600;
 
-const int max_frames_in_flight = 2;
+const int max_frames_in_flight = 1;
 
 const std::vector<const char*> validation_layers = {
   "VK_LAYER_KHRONOS_validation"
@@ -183,7 +183,7 @@ struct UniformBufferObject
 class Renderer
 {
 public:
-  list<Note*>** note_buffer;
+  std::list<Note*>** note_buffer;
   GLFWwindow* window;
   VkInstance inst;
   VkDebugUtilsMessengerEXT debug_msg;

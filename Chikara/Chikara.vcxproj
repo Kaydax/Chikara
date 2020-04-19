@@ -22,11 +22,13 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="KDMAPI.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Midi.cpp" />
     <ClCompile Include="Renderer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="KDMAPI.h" />
     <ClInclude Include="Main.h" />
     <ClInclude Include="Midi.h" />
     <ClInclude Include="Renderer.h" />

@@ -9,7 +9,6 @@
 #include <ppl.h>
 #include <mutex>
 #include <shared_mutex>
-using namespace std;
 
 struct MidiChunk
 {
@@ -26,10 +25,14 @@ struct NoteColor
 
 struct Note
 {
-  double start;
-  double end;
+  float start;
+  float end;
   int key;
   NoteColor color;
+  char channel;
+  char velocity;
+  bool noteon_played = false;
+  bool noteoff_played = false;
 };
 
 struct Tempo
@@ -41,7 +44,7 @@ struct Tempo
 class BufferedReader
 {
   public:
-    BufferedReader(ifstream* _file_stream, size_t _start, size_t _length, uint32_t _buffer_size, std::mutex* _mtx);
+    BufferedReader(std::ifstream* _file_stream, size_t _start, size_t _length, uint32_t _buffer_size, std::mutex* _mtx);
     ~BufferedReader();
     void seek(int64_t offset, int origin);
     void read(uint8_t* dst, size_t size);
@@ -50,7 +53,7 @@ class BufferedReader
   private:
     void updateBuffer();
 
-    ifstream* file_stream;
+    std::ifstream* file_stream;
     size_t start;
     size_t length;
     size_t pos;
@@ -64,11 +67,11 @@ class BufferedReader
 class MidiTrack
 {
   public:
-    MidiTrack(ifstream* _file_stream, size_t _start, size_t _length, uint32_t _buffer_size, uint32_t _track_num, uint16_t _ppq, std::mutex* _mtx);
+    MidiTrack(std::ifstream* _file_stream, size_t _start, size_t _length, uint32_t _buffer_size, uint32_t _track_num, uint16_t _ppq, std::mutex* _mtx);
     ~MidiTrack();
     void parseDelta();
     void parseDeltaTime();
-    void parseEvent2ElectricBoogaloo(list<Note*>** global_notes);
+    void parseEvent2ElectricBoogaloo(std::list<Note*>** global_notes);
     void parseEvent1();
 
     bool ended = false;
@@ -76,8 +79,8 @@ class MidiTrack
     uint64_t tick_time = 0;
     double time = 0;
     uint32_t notes_parsed = 0;
-    list<Note*>** note_stacks = NULL;
-    vector<Tempo> tempo_events;
+    std::list<Note*>** note_stacks = NULL;
+    std::vector<Tempo> tempo_events;
     Tempo* global_tempo_events = 0;
     double tempo_multiplier = 0;
     uint32_t global_tempo_event_count = 0;
@@ -99,7 +102,7 @@ class Midi
     Midi(const char* file_name);
     ~Midi();
 
-    list<Note*>** note_buffer;
+    std::list<Note*>** note_buffer;
     Tempo* tempo_array;
     uint32_t tempo_count;
   private:
@@ -109,9 +112,9 @@ class Midi
     uint16_t parseShort();
     uint32_t parseInt();
 
-    vector<MidiChunk> tracks;
+    std::vector<MidiChunk> tracks;
     MidiTrack** readers;
-    ifstream file_stream;
+    std::ifstream file_stream;
     size_t file_end;
     uint16_t format;
     uint16_t ppq;

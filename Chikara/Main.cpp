@@ -1,4 +1,7 @@
 #include "Main.h"
+#ifndef KDMAPI_H
+#include "KDMAPI.h"
+#endif
 
 Renderer r;
 Midi* midi;
@@ -9,6 +12,8 @@ void Main::run(int argc, char** argv)
     printf("Usage: Chikara.exe [midi]\n");
     return;
   }
+
+  KDMAPI::Init();
   midi = new Midi(argv[1]);
   r.note_buffer = midi->note_buffer;
   initWindow(); //Setup everything for the window
@@ -55,7 +60,7 @@ void Main::initVulkan()
   r.createSyncObjects();
 }
 
-auto timer = chrono::steady_clock();
+auto timer = std::chrono::steady_clock();
 auto last_time = timer.now();
 uint64_t frame_counter = 0;
 uint64_t fps = 0;
@@ -74,12 +79,12 @@ void Main::mainLoop()
 
     //Output fps
     ++frame_counter;
-    if(last_time + chrono::seconds(1) < timer.now())
+    if(last_time + std::chrono::seconds(1) < timer.now())
     {
       last_time = timer.now();
       fps = frame_counter;
       frame_counter = 0;
-      cout << endl << fps << " fps";
+      std::cout << std::endl << fps << " fps";
     }
   }
 

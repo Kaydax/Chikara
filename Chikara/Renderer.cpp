@@ -4,6 +4,7 @@
 #include "Renderer.h"
 #include "Main.h"
 #include "Midi.h"
+#include "KDMAPI.h"
 
 Main m;
 
@@ -258,7 +259,6 @@ VkSurfaceFormatKHR Renderer::chooseSwapSurfaceFormat(const std::vector<VkSurface
 //Choose what kind of rendering mode the surface should be
 VkPresentModeKHR Renderer::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& available_present_modes)
 {
-  /*
   for(const auto& available_present_mode : available_present_modes)
   {
     if(available_present_mode == VK_PRESENT_MODE_MAILBOX_KHR)
@@ -266,7 +266,6 @@ VkPresentModeKHR Renderer::chooseSwapPresentMode(const std::vector<VkPresentMode
       return available_present_mode;
     }
   }
-  */
 
   return VK_PRESENT_MODE_FIFO_KHR;
 }
@@ -288,8 +287,8 @@ VkExtent2D Renderer::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabiliti
         static_cast<uint32_t>(height)
     };
 
-    actual_extent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, actual_extent.width));
-    actual_extent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, actual_extent.height));
+    actual_extent.width = max(capabilities.minImageExtent.width, min(capabilities.maxImageExtent.width, actual_extent.width));
+    actual_extent.height = max(capabilities.minImageExtent.height, min(capabilities.maxImageExtent.height, actual_extent.height));
 
     return actual_extent;
   }
@@ -1143,7 +1142,7 @@ void Renderer::drawFrame(float time)
 
   for(int i = 0; i < 256; i++)
   {
-    list<Note*>* notes = note_buffer[i];
+    std::list<Note*>* notes = note_buffer[i];
     //for(int j = 0; j < 1; j++)
     while(true)
     {
@@ -1183,8 +1182,16 @@ void Renderer::drawFrame(float time)
   for (auto [it, i] = std::tuple{ notes_shown.begin(), 0 }; it != notes_shown.end(); it++, i++)
   {
     Note* n = *it;
+    if (!n->noteon_played && time >= n->start) {
+      KDMAPI::SendDirectData(MAKELONG(MAKEWORD((n->channel) | (9 << 4), n->key), MAKEWORD(n->velocity, 0)));
+      n->noteon_played = true;
+    }
     if(time >= n->end)
     {
+      if (!n->noteoff_played) {
+        KDMAPI::SendDirectData(MAKELONG(MAKEWORD((n->channel) | (8 << 4), n->key), MAKEWORD(n->velocity, 0)));
+        n->noteoff_played = true;
+      }
       data_i[i] = { 0, 0, 0, {0,0,0} };
     }
     else

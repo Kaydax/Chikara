@@ -72,7 +72,7 @@ layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec2 fragTexCoord;
 layout(location = 2) out vec2 vNoteSize;
 
-const int N_NOTES = 128;
+const int N_NOTES = 127;
 const float blackWidth = 0.75;
 const int nWhiteKeys = N_NOTES / 12 * 7 + (N_NOTES % 12);
 
