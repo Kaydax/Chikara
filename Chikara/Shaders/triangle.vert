@@ -57,6 +57,7 @@ layout(binding = 0) uniform UniformBufferObject {
     mat4 view;
     mat4 proj;
     float time;
+    float pre_time;
 } ubo;
 
 layout(location = 0) in vec2 inPos;
@@ -130,14 +131,19 @@ void main() {
     case 2:
         //vtx_pos.x = (float(noteKey) / flotes);
         //vtx_pos.x = 1.0 / flotes;
+        //vtx_pos.y = noteEnd - ubo.time;
+        //vtx_pos.y = (noteStart - ubo.time) / ubo.pre_time + (noteEnd - noteStart) / ubo.pre_time;
         vtx_pos.y = noteEnd - ubo.time;
         break;
     case 3:
         //vtx_pos.x = float(noteKey) / flotes + (1 / flotes);
         //vtx_pos.x = 0.0;
+        //vtx_pos.y = noteEnd - ubo.time;
+        //vtx_pos.y = (noteStart - ubo.time) / ubo.pre_time + (noteEnd - noteStart) / ubo.pre_time;
         vtx_pos.y = noteEnd - ubo.time;
         break;
     }
+    vtx_pos.y /= ubo.pre_time;
     vtx_pos.x = inPos.x / float(nWhiteKeys);
     vtx_pos.x *= black ? blackWidth : 1.0; //make thinner if black
     vtx_pos.x += getNoteOffset(noteKey);

@@ -68,7 +68,7 @@ uint64_t fps = 0;
 void Main::mainLoop()
 {
   static auto start_time = std::chrono::high_resolution_clock::now();
-  r.pre_time = 1.0;
+  r.pre_time = 0.25;
   while(!glfwWindowShouldClose(r.window))
   {
     auto current_time = std::chrono::high_resolution_clock::now();

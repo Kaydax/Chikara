@@ -1298,6 +1298,7 @@ void Renderer::updateUniformBuffer(uint32_t current_img, float time)
 
   // blah blah blah blah
   ubo.time = time;
+  ubo.pre_time = pre_time;
 
   //Now lets copy the data in the uniform buffer into the current uniform buffer
   void* data;

@@ -184,6 +184,9 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>$(VULKAN_SDK)\Lib\vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PreBuildEvent>
+      <Command>cd Shaders &amp;&amp; glslc triangle.vert -o vert.spv &amp;&amp; glslc triangle.frag -o frag.spv</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
