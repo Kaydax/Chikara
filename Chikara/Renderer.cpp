@@ -1011,7 +1011,7 @@ void Renderer::copyBuffer(VkBuffer src_buffer, VkBuffer dst_buffer, VkDeviceSize
 void Renderer::createCommandBuffers()
 {
   //Allocate the command buffer
-  cmd_buffers.resize(swap_chain_framebuffers.size() * MAX_NOTES_POW);
+  cmd_buffers.resize(swap_chain_framebuffers.size() * MAX_NOTES_MULT);
 
   VkCommandBufferAllocateInfo alloc_info = {};
   alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -1027,12 +1027,12 @@ void Renderer::createCommandBuffers()
   //Start recording the command buffer
   for(size_t swap_chain = 0; swap_chain < swap_chain_framebuffers.size(); swap_chain++)
   {
-    for (size_t note_buf_idx = 0; note_buf_idx < MAX_NOTES_POW; note_buf_idx++)
+    for (size_t note_buf_idx = 0; note_buf_idx < MAX_NOTES_MULT; note_buf_idx++)
     {
       VkCommandBufferBeginInfo begin_info = {};
       begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-      if (vkBeginCommandBuffer(cmd_buffers[note_buf_idx + swap_chain * MAX_NOTES_POW], &begin_info) != VK_SUCCESS)
+      if (vkBeginCommandBuffer(cmd_buffers[note_buf_idx + swap_chain * MAX_NOTES_MULT], &begin_info) != VK_SUCCESS)
       {
         throw std::runtime_error("VKERR: Failed to begin recording command buffer!");
       }
@@ -1052,23 +1052,25 @@ void Renderer::createCommandBuffers()
       render_pass_info.clearValueCount = static_cast<uint32_t>(clear_values.size());
       render_pass_info.pClearValues = clear_values.data();
 
-      //Now the render pass can begin
-      vkCmdBeginRenderPass(cmd_buffers[note_buf_idx + swap_chain * MAX_NOTES_POW], &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+      auto idx = note_buf_idx + swap_chain * MAX_NOTES_MULT;
 
-      vkCmdBindPipeline(cmd_buffers[note_buf_idx + swap_chain * MAX_NOTES_POW], VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline);
+      //Now the render pass can begin
+      vkCmdBeginRenderPass(cmd_buffers[idx], &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+
+      vkCmdBindPipeline(cmd_buffers[idx], VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline);
 
       VkBuffer vertex_buffers[] = { vertex_buffer };
       VkDeviceSize offsets[] = { 0 };
-      vkCmdBindVertexBuffers(cmd_buffers[note_buf_idx + swap_chain * MAX_NOTES_POW], VERTEX_BUFFER_BIND_ID, 1, vertex_buffers, offsets);
-      vkCmdBindVertexBuffers(cmd_buffers[note_buf_idx + swap_chain * MAX_NOTES_POW], INSTANCE_BUFFER_BIND_ID, 1, &instance_buffer, offsets);
-      vkCmdBindIndexBuffer(cmd_buffers[note_buf_idx + swap_chain * MAX_NOTES_POW], index_buffer, 0, VK_INDEX_TYPE_UINT32);
-      vkCmdBindDescriptorSets(cmd_buffers[note_buf_idx + swap_chain * MAX_NOTES_POW], VK_PIPELINE_BIND_POINT_GRAPHICS, pl_layout, 0, 1, &descriptor_sets[swap_chain], 0, nullptr);
+      vkCmdBindVertexBuffers(cmd_buffers[idx], VERTEX_BUFFER_BIND_ID, 1, vertex_buffers, offsets);
+      vkCmdBindVertexBuffers(cmd_buffers[idx], INSTANCE_BUFFER_BIND_ID, 1, &instance_buffer, offsets);
+      vkCmdBindIndexBuffer(cmd_buffers[idx], index_buffer, 0, VK_INDEX_TYPE_UINT32);
+      vkCmdBindDescriptorSets(cmd_buffers[idx], VK_PIPELINE_BIND_POINT_GRAPHICS, pl_layout, 0, 1, &descriptor_sets[swap_chain], 0, nullptr);
 
-      vkCmdDrawIndexed(cmd_buffers[note_buf_idx + swap_chain * MAX_NOTES_POW], 6, 1 << (note_buf_idx + 1), 0, 0, 0);
+      vkCmdDrawIndexed(cmd_buffers[idx], 6, MAX_NOTES_BASE * (note_buf_idx + 1), 0, 0, 0);
 
-      vkCmdEndRenderPass(cmd_buffers[note_buf_idx + swap_chain * MAX_NOTES_POW]);
+      vkCmdEndRenderPass(cmd_buffers[idx]);
 
-      if (vkEndCommandBuffer(cmd_buffers[note_buf_idx + swap_chain * MAX_NOTES_POW]) != VK_SUCCESS)
+      if (vkEndCommandBuffer(cmd_buffers[idx]) != VK_SUCCESS)
       {
         throw std::runtime_error("VKERR: Failed to record command buffer!");
       }
@@ -1177,7 +1179,8 @@ void Renderer::drawFrame(float time)
 
   void* data;
   vkMapMemory(device, instance_buffer_mem, 0, sizeof(InstanceData) * MAX_NOTES, 0, &data);
-  memset(data, 0, sizeof(InstanceData) * MAX_NOTES);
+  if (last_notes_shown_count > notes_shown.size())
+    memset((char*)data + last_notes_shown_count * sizeof(InstanceData), 0, sizeof(InstanceData) * (last_notes_shown_count - notes_shown.size()));
 
   InstanceData* data_i = (InstanceData*)data;
   //cout << endl << "Notes playing: " << notes_shown.size();
@@ -1203,13 +1206,15 @@ void Renderer::drawFrame(float time)
     }
   }
 
+  last_notes_shown_count = notes_shown.size();
+
   notes_shown.remove_if([=](auto n) {
     return time >= n->end;
   });
 
   int note_cmd_buf = 0;
-  for (int i = 0; i < MAX_NOTES_POW; i++) {
-    if (notes_shown.size() <= (1 << (i + 1))) {
+  for (int i = 0; i < MAX_NOTES_MULT; i++) {
+    if (notes_shown.size() <= (MAX_NOTES_BASE * (i + 1))) {
       note_cmd_buf = i;
       break;
     }
@@ -1228,7 +1233,7 @@ void Renderer::drawFrame(float time)
   submit_info.pWaitSemaphores = wait_semaphores;
   submit_info.pWaitDstStageMask = wait_stages;
   submit_info.commandBufferCount = 1;
-  submit_info.pCommandBuffers = &cmd_buffers[note_cmd_buf + img_index * MAX_NOTES_POW];
+  submit_info.pCommandBuffers = &cmd_buffers[note_cmd_buf + img_index * MAX_NOTES_MULT];
 
   VkSemaphore signal_semaphores[] = { render_fin_semaphore[current_frame] }; //What semaphores we signal once the cmd buffer finished execution
   submit_info.signalSemaphoreCount = 1;

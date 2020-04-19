@@ -27,8 +27,9 @@
 
 #pragma endregion
 
-#define MAX_NOTES_POW 24 // 16777216
-#define MAX_NOTES 1 << MAX_NOTES_POW
+#define MAX_NOTES_MULT 1000 // 10,000,000
+#define MAX_NOTES_BASE 10000
+#define MAX_NOTES MAX_NOTES_BASE * MAX_NOTES_MULT
 #define VERTEX_BUFFER_BIND_ID 0
 #define INSTANCE_BUFFER_BIND_ID 1
 
@@ -241,6 +242,7 @@ public:
   std::vector<VkSemaphore> next_step_semaphores;
 
   std::list<Note*> notes_shown;
+  size_t last_notes_shown_count;
 
   bool framebuffer_resized = false;
 
