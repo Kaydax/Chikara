@@ -286,17 +286,17 @@ void Midi::LoaderThread()
   double seconds = 0;
   uint64_t time = 0;
   while (true) {
-    bool all_ended = false;
-    while (seconds < renderer_time.load() + 10)
+    bool* tracks_ended = new bool[track_count];
+    memset(tracks_ended, 0, track_count);
+    while (seconds < renderer_time.load() + 10.0f)
     {
       for (int i = 0; i < track_count; i++)
       {
         MidiTrack* track = readers[i];
         if (track->ended) {
-          all_ended = true;
+          tracks_ended[i] = true;
           continue;
         }
-        all_ended = false;
         if (!track->delta_parsed)
           track->parseDeltaTime();
         if (time < track->tick_time)
@@ -305,13 +305,24 @@ void Midi::LoaderThread()
           track->parseEvent(note_buffer, &misc_events);
           if (track->time > seconds) seconds = track->time;
           track->parseDeltaTime();
-          if (track->ended)
+          if (track->ended) {
+            tracks_ended[i] = true;
             break;
+          }
         }
       }
       time++;
     }
-    if (all_ended) break;
+    bool all_ended = true;
+    for (int i = 0; i < track_count; i++) {
+      if (tracks_ended[i] == false) {
+        all_ended = false;
+        break;
+      }
+    }
+    delete[] tracks_ended;
+    if (all_ended)
+      break;
   }
   printf("\nloader thread exiting\n");
 }
