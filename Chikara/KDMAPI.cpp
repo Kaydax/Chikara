@@ -1,12 +1,10 @@
 #include <Windows.h>
 #include "KDMAPI.h"
 
-#define MAKEBYTE(l,h)	((l) | ((h) << 4))
-
 namespace KDMAPI {
   HMODULE dll_handle = nullptr;
-  uint32_t(__stdcall* SendDirectData)(unsigned long msg);
-  int(__stdcall* TerminateKDMAPIStream)();
+  uint32_t(__cdecl* SendDirectData)(unsigned long msg);
+  int(__cdecl* TerminateKDMAPIStream)();
 
   void Init() {
     // This block of code is from WinMMWRP

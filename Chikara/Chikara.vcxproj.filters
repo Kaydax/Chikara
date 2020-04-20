@@ -44,5 +44,8 @@
     <ClInclude Include="KDMAPI.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Misc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

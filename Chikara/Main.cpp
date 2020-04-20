@@ -17,7 +17,8 @@ void Main::run(int argc, char** argv)
   midi = new Midi(argv[1]);
   r.note_buffer = midi->note_buffer;
   r.misc_buffer = &midi->misc_events;
-  r.misc_buffer_it = midi->misc_events.begin();
+  r.midi_renderer_time = &midi->renderer_time;
+  midi->SpawnLoaderThread();
   initWindow(); //Setup everything for the window
   initVulkan(); //Setup everything for Vulkan
   mainLoop(); //The main loop for the application
@@ -75,6 +76,7 @@ void Main::mainLoop()
   {
     auto current_time = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
+    r.midi_renderer_time->store(time + r.pre_time);
 
     glfwPollEvents();
     r.drawFrame(time);

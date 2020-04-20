@@ -32,6 +32,7 @@ Midi::Midi(const char* file_name)
   //Load the file
   loadMidi();
 
+  /*
   try
   {
     double seconds = 0;
@@ -75,14 +76,15 @@ Midi::Midi(const char* file_name)
   {
     std::cout << e;
   }
+  */
 }
 
 Midi::~Midi()
 {
   for(int i = 0; i < 256; i++)
   {
-    std::list<Note*>* notes = note_buffer[i];
-    while(!notes->empty())
+    ThreadSafeDeque<Note*>* notes = note_buffer[i];
+    while(notes->size() != 0)
     {
       delete notes->front();
       notes->pop_front();
@@ -221,10 +223,10 @@ void Midi::loadMidi()
       readers[i]->global_tempo_event_count = tempo_count;
     }
 
-    note_buffer = new std::list<Note*> * [256];
+    note_buffer = new ThreadSafeDeque<Note*>* [256];
     for(int i = 0; i < 256; i++)
     {
-      note_buffer[i] = new std::list<Note*>();
+      note_buffer[i] = new ThreadSafeDeque<Note*>();
     }
 
   } catch(const char* e)
@@ -272,6 +274,46 @@ uint32_t Midi::parseInt()
   }
 
   return length;
+}
+
+void Midi::SpawnLoaderThread()
+{
+  loader_thread = std::thread(&Midi::LoaderThread, this);
+}
+
+void Midi::LoaderThread()
+{
+  double seconds = 0;
+  uint64_t time = 0;
+  while (true) {
+    bool all_ended = false;
+    while (seconds < renderer_time.load() + 10)
+    {
+      for (int i = 0; i < track_count; i++)
+      {
+        MidiTrack* track = readers[i];
+        if (track->ended) {
+          all_ended = true;
+          continue;
+        }
+        all_ended = false;
+        if (!track->delta_parsed)
+          track->parseDeltaTime();
+        if (time < track->tick_time)
+          continue;
+        while (time >= track->tick_time) {
+          track->parseEvent(note_buffer, &misc_events);
+          if (track->time > seconds) seconds = track->time;
+          track->parseDeltaTime();
+          if (track->ended)
+            break;
+        }
+      }
+      time++;
+    }
+    if (all_ended) break;
+  }
+  printf("\nloader thread exiting\n");
 }
 
 #pragma endregion
@@ -477,7 +519,7 @@ double MidiTrack::multiplierFromTempo(uint32_t tempo, uint16_t ppq)
   return tempo / 1000000.0 / ppq;
 }
 
-void MidiTrack::parseEvent(std::list<Note*>** global_notes, std::vector<MiscEvent>* global_misc)
+void MidiTrack::parseEvent(ThreadSafeDeque<Note*>** global_notes, ThreadSafeDeque<MiscEvent>* global_misc)
 {
   bool stage_2 = global_notes != nullptr;
   if(ended)

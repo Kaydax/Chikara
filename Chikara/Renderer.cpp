@@ -1145,18 +1145,18 @@ void Renderer::drawFrame(float time)
   //Update the Uniform Buffer
   updateUniformBuffer(img_index, time);
 
-  while (misc_buffer_it != misc_buffer->end() && time >= (*misc_buffer_it).time) {
-    KDMAPI::SendDirectData((*misc_buffer_it).msg);
-    misc_buffer_it++;
+  while (misc_buffer->size() != 0 && time >= misc_buffer->front().time) {
+    KDMAPI::SendDirectData(misc_buffer->front().msg);
+    misc_buffer->pop_front();
   }
 
   for(int i = 0; i < 256; i++)
   {
-    std::list<Note*>* notes = note_buffer[i];
+    ThreadSafeDeque<Note*>* notes = note_buffer[i];
     //for(int j = 0; j < 1; j++)
     while(true)
     {
-      if(notes->empty())
+      if(notes->size() == 0)
       {
         break;
       }
@@ -1194,7 +1194,7 @@ void Renderer::drawFrame(float time)
   void* data;
   vkMapMemory(device, instance_buffer_mem, 0, sizeof(InstanceData) * MAX_NOTES, 0, &data);
   if (last_notes_shown_count > notes_shown_size)
-    memset((char*)data + last_notes_shown_count * sizeof(InstanceData), 0, sizeof(InstanceData) * (last_notes_shown_count - notes_shown_size));
+    memset((char*)data + notes_shown_size * sizeof(InstanceData), 0, sizeof(InstanceData) * (last_notes_shown_count - notes_shown_size));
 
   InstanceData* data_i = (InstanceData*)data;
   //cout << endl << "Notes playing: " << notes_shown.size();
@@ -1225,7 +1225,8 @@ void Renderer::drawFrame(float time)
           white_notes_shown--;
         }
         delete n;
-        vec.erase(it++);
+        *it = nullptr;
+        it = vec.erase(it);
       }
       else
       {

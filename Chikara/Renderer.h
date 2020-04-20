@@ -186,9 +186,9 @@ struct UniformBufferObject
 class Renderer
 {
 public:
-  std::list<Note*>** note_buffer;
-  std::vector<MiscEvent>* misc_buffer;
-  std::vector<MiscEvent>::iterator misc_buffer_it;
+  ThreadSafeDeque<Note*>** note_buffer;
+  ThreadSafeDeque<MiscEvent>* misc_buffer;
+  std::atomic<float>* midi_renderer_time;
   GLFWwindow* window;
   VkInstance inst;
   VkDebugUtilsMessengerEXT debug_msg;

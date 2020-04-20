@@ -10,6 +10,7 @@
 #include <ppl.h>
 #include <mutex>
 #include <shared_mutex>
+#include "Misc.h"
 
 struct MidiChunk
 {
@@ -92,7 +93,7 @@ class MidiTrack
     ~MidiTrack();
     void parseDelta();
     void parseDeltaTime();
-    void parseEvent(std::list<Note*>** global_notes, std::vector<MiscEvent>* global_misc);
+    void parseEvent(ThreadSafeDeque<Note*>** global_notes, ThreadSafeDeque<MiscEvent>* global_misc);
 
     bool ended = false;
     bool delta_parsed = false;
@@ -121,14 +122,17 @@ class Midi
   public:
     Midi(const char* file_name);
     ~Midi();
+    void SpawnLoaderThread();
 
-    std::list<Note*>** note_buffer;
-    std::vector<MiscEvent> misc_events;
+    ThreadSafeDeque<Note*>** note_buffer;
+    ThreadSafeDeque<MiscEvent> misc_events;
     Tempo* tempo_array;
     uint32_t tempo_count;
+    std::atomic<float> renderer_time;
   private:
     void loadMidi();
     void assertText(const char* text);
+    void LoaderThread();
     uint8_t readByte();
     uint16_t parseShort();
     uint32_t parseInt();
@@ -141,4 +145,5 @@ class Midi
     uint16_t ppq;
     uint32_t track_count;
     std::mutex mtx;
+    std::thread loader_thread;
 };
