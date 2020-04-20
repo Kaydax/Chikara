@@ -52,7 +52,7 @@ Midi::Midi(const char* file_name)
         if (time < track->tick_time)
           continue;
         while (time >= track->tick_time) {
-          track->parseEvent2ElectricBoogaloo(note_buffer);
+          track->parseEvent(note_buffer);
           track->parseDeltaTime();
           if (track->ended)
             break;
@@ -143,7 +143,7 @@ void Midi::loadMidi()
         while (!track->ended)
         {
           track->parseDelta();
-          track->parseEvent1();
+          track->parseEvent(nullptr);
         }
 
         mtx.lock();
@@ -477,8 +477,9 @@ double MidiTrack::multiplierFromTempo(uint32_t tempo, uint16_t ppq)
   return tempo / 1000000.0 / ppq;
 }
 
-void MidiTrack::parseEvent1()
+void MidiTrack::parseEvent(std::list<Note*>** global_notes)
 {
+  bool stage_2 = global_notes != nullptr;
   if(ended)
   {
     return;
@@ -500,244 +501,90 @@ void MidiTrack::parseEvent1()
 
     switch(cmd)
     {
-      case 0x80:
-        reader->readByte();
-        reader->readByte();
-        break;
-      case 0x90:
-        reader->readByte();
-        if(reader->readByte() > 0) notes_parsed++;
-        break;
-      case 0xA0:
-        reader->readByte();
-        reader->readByte();
-        break;
-      case 0xB0:
-        reader->readByte();
-        reader->readByte();
-        break;
-      case 0xC0:
-        reader->readByte();
-        break;
-      case 0xD0:
-        reader->readByte();
-        break;
-      case 0xE0:
-        reader->readByte();
-        reader->readByte();
-        break;
-      default:
-      {
-        switch(command)
+      case 0x80: // Note Off
+        if (stage_2)
         {
-          case 0xFF:
-          {
-            uint8_t command2 = reader->readByte();
+          uint8_t key = reader->readByte();
+          uint8_t vel = reader->readByte();
+          if (note_stacks == NULL) return;
 
-            uint8_t c;
-            uint32_t val = 0;
-            while((c = reader->readByte()) > 0x7F)
-            {
-              val = (val << 7) | (c & 0x7F);
-            }
-            val = val << 7 | c;
+          std::list<Note*>* stack = note_stacks[channel * 256 + key];
 
-            switch(command2)
-            {
-              case 0x51:
-              {
-                uint32_t tempo = 0;
-                for (int i = 0; i != 3; i++)
-                  tempo = (uint32_t)((tempo << 8) | reader->readByte());
-                //Tempo
-
-                Tempo t;
-                t.pos = tick_time;
-                t.tempo = tempo;
-                tempo_events.push_back(t);
-                break;
-              }
-              // huge block of copy + paste below, until these two functions get merged...
-              case 0x00:
-                // Sequence number
-                reader->skipBytes(2);
-                break;
-              case 0x01: // Text
-              case 0x02: // Copyright info
-              case 0x03: // Track name
-              case 0x04: // Track instrument name
-              case 0x05: // Lyric
-              case 0x06: // Marker
-              case 0x07: // Cue point
-              case 0x7F: // Sequencer-specific information
-                reader->skipBytes(val);
-                break;
-              case 0x20: // MIDI Channel prefix
-                reader->skipBytes(1);
-                break;
-              case 0x21: // MIDI Port
-                reader->skipBytes(1);
-                break;
-              case 0x2F:
-                // End of track
-                ended = true;
-                break;
-              case 0x54:
-                // SMPTE Offset
-                reader->skipBytes(5);
-                break;
-              case 0x58:
-                // Time signature
-                reader->skipBytes(4);
-                break;
-              case 0x59:
-                // Key signature
-                reader->skipBytes(2);
-                break;
-
-              default:
-              {
-                printf("\nUnknown meta-event 0x%x", command2);
-                reader->skipBytes(val);
-                break;
-              }
-            }
-            break;
-          }
-          case 0xF0:
-            while(reader->readByte() != 0xF7);
-            break;
-          case 0xF2:
-            reader->readByte();
-            reader->readByte();
-            break;
-          case 0xF3:
-            reader->readByte();
-            break;
-          default:
-            break;
-        }
-        break;
-      }
-    }
-  } catch(const char* e)
-  {
-    std::cout << e;
-    ended = true;
-  }
-}
-
-void MidiTrack::parseEvent2ElectricBoogaloo(std::list<Note*>** global_notes)
-{
-  if(ended)
-  {
-    return;
-  }
-  try
-  {
-    delta_parsed = false;
-    uint8_t command = reader->readByte();
-    if(command < 0x80)
-    {
-      reader->seek(-1, SEEK_CUR);
-      command = prev_command;
-    }
-
-    prev_command = command;
-
-    uint8_t cmd = (uint8_t)(command & 0xF0);
-    uint8_t channel = (uint8_t)(command & 0x0F);
-
-    switch(cmd)
-    {
-      case 0x80:
-      {
-        uint8_t key = reader->readByte();
-        uint8_t vel = reader->readByte();
-        if(note_stacks == NULL) return;
-
-        std::list<Note*>* stack = note_stacks[channel * 256 + key];
-
-        if(!stack->empty())
-        {
-          Note* n = stack->front();
-          stack->pop_front();
-          n->end = time;
-        }
-
-        // Note Off
-        break;
-      }
-      case 0x90:
-      {
-        uint8_t key = reader->readByte();
-        uint8_t vel = reader->readByte();
-        // Note On
-
-        if(note_stacks == NULL) initNoteStacks();
-        std::list<Note*>* stack = note_stacks[channel * 256 + key];
-
-        if(vel > 0)
-        {
-
-          Note* n = new Note();
-          n->color = colors[channel];
-          n->start = time;
-          n->end = -1;
-          n->key = key;
-          n->channel = channel;
-          n->velocity = vel;
-
-          stack->push_back(n);
-          global_notes[key]->push_back(n);
-
-          notes_parsed++;
-        }
-        else
-        {
-          if(!stack->empty())
+          if (!stack->empty())
           {
             Note* n = stack->front();
             stack->pop_front();
             n->end = time;
           }
+          break;
+        }
+        else
+        {
+          reader->readByte();
+          reader->readByte();
         }
         break;
-      }
-      case 0xA0:
-      {
-        uint8_t key = reader->readByte();
-        uint8_t vel = reader->readByte();
-        // Polyphonic Pressure
+      case 0x90: // Note On
+        if (stage_2)
+        {
+          uint8_t key = reader->readByte();
+          uint8_t vel = reader->readByte();
+
+          if (note_stacks == NULL) initNoteStacks();
+          std::list<Note*>* stack = note_stacks[channel * 256 + key];
+
+          if (vel > 0)
+          {
+
+            Note* n = new Note();
+            n->color = colors[channel];
+            n->start = time;
+            n->end = -1;
+            n->key = key;
+            n->channel = channel;
+            n->velocity = vel;
+
+            stack->push_back(n);
+            global_notes[key]->push_back(n);
+
+            notes_parsed++;
+          }
+          else
+          {
+            if (!stack->empty())
+            {
+              Note* n = stack->front();
+              stack->pop_front();
+              n->end = time;
+            }
+          }
+          break;
+        }
+        else
+        {
+          reader->readByte();
+          if (reader->readByte() > 0) notes_parsed++;
+        }
         break;
-      }
-      case 0xB0:
-      {
-        uint8_t controller = reader->readByte();
-        uint8_t value = reader->readByte();
-        // Controller
+      case 0xA0: // Polyphonic Pressure
+        reader->readByte();
+        reader->readByte();
         break;
-      }
-      case 0xC0:
-      {
-        uint8_t program = reader->readByte();
-        // Program Change
+      case 0xB0: // Controller
+        reader->readByte();
+        reader->readByte();
         break;
-      }
-      case 0xD0:
-      {
-        uint8_t pressure = reader->readByte();
-        // Channel Pressure
+      case 0xC0: // Program Change
+        reader->readByte();
         break;
-      }
-      case 0xE0:
-      {
-        uint8_t val1 = reader->readByte();
-        uint8_t val2 = reader->readByte();
-        // Pitch Wheel
+      case 0xD0: // Channel Pressure
+        reader->readByte();
         break;
-      }
-      case 0xF0:
+      case 0xE0: // Pitch Wheel
+        reader->readByte();
+        reader->readByte();
+        break;
+      case 0xF0: // System Event
       {
         switch(command)
         {
@@ -755,16 +602,7 @@ void MidiTrack::parseEvent2ElectricBoogaloo(std::list<Note*>** global_notes)
 
             switch(command2)
             {
-              case 0x51:
-              {
-                uint32_t tempo = 0;
-                for(int i = 0; i != 3; i++)
-                  tempo = (uint32_t)((tempo << 8) | reader->readByte());
-                //Tempo
-                break;
-              }
-              case 0x00:
-                // Sequence number
+              case 0x00: // Sequence number
                 reader->skipBytes(2);
                 break;
               case 0x01: // Text
@@ -787,6 +625,20 @@ void MidiTrack::parseEvent2ElectricBoogaloo(std::list<Note*>** global_notes)
                 // End of track
                 ended = true;
                 break;
+              case 0x51: // Tempo
+              {
+                uint32_t tempo = 0;
+                for (int i = 0; i != 3; i++)
+                  tempo = (uint32_t)((tempo << 8) | reader->readByte());
+
+                if (!stage_2) {
+                  Tempo t;
+                  t.pos = tick_time;
+                  t.tempo = tempo;
+                  tempo_events.push_back(t);
+                }
+                break;
+              }
               case 0x54:
                 // SMPTE Offset
                 reader->skipBytes(5);
@@ -799,13 +651,16 @@ void MidiTrack::parseEvent2ElectricBoogaloo(std::list<Note*>** global_notes)
                 // Key signature
                 reader->skipBytes(2);
                 break;
+
               default:
-                printf("%x\n", command2);
-                throw "yell at kaydax for making these two different functions\n";
+              {
+                printf("\nUnknown system event 0x%x", command2);
+                reader->skipBytes(val);
                 break;
               }
             }
             break;
+          }
           case 0xF0:
             while(reader->readByte() != 0xF7);
             break;
@@ -817,20 +672,17 @@ void MidiTrack::parseEvent2ElectricBoogaloo(std::list<Note*>** global_notes)
             reader->readByte();
             break;
           default:
-            throw std::runtime_error("Unknown system event!");
             break;
         }
         break;
       }
-      default:
-        throw std::runtime_error("Unknown event!");
     }
   } catch(const char* e)
   {
     std::cout << e;
     ended = true;
   }
-  if(ended)
+  if (ended && stage_2)
   {
     deleteNoteStacks();
   }

@@ -71,8 +71,7 @@ class MidiTrack
     ~MidiTrack();
     void parseDelta();
     void parseDeltaTime();
-    void parseEvent2ElectricBoogaloo(std::list<Note*>** global_notes);
-    void parseEvent1();
+    void parseEvent(std::list<Note*>** global_notes);
 
     bool ended = false;
     bool delta_parsed = false;
