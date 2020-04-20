@@ -242,7 +242,8 @@ public:
 
   std::vector<VkSemaphore> next_step_semaphores;
 
-  std::list<Note*> notes_shown;
+  std::array<std::list<Note*>, 256> notes_shown;
+  size_t white_notes_shown = 0;
   size_t last_notes_shown_count;
 
   bool framebuffer_resized = false;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <stdexcept>
 #include <vector>
 #include <iostream>
@@ -32,13 +33,26 @@ struct Note
   char channel;
   char velocity;
   bool noteon_played = false;
-  bool noteoff_played = false;
 };
 
 struct Tempo
 {
   uint64_t pos;
   uint32_t tempo;
+};
+
+// TODO (Khang): constexpr meta-programming is too hard, using macros for now...
+//                         C      C#    D      D#    E      F      F#    G      G#    A      A#    B
+#define SHARP_TABLE_OCTAVE false, true, false, true, false, false, true, false, true, false, true, false,
+#define SEVEN_SHARP_TABLE_OCTAVES SHARP_TABLE_OCTAVE SHARP_TABLE_OCTAVE SHARP_TABLE_OCTAVE SHARP_TABLE_OCTAVE SHARP_TABLE_OCTAVE SHARP_TABLE_OCTAVE SHARP_TABLE_OCTAVE
+
+// 21 full octaves, 4 notes left over
+constexpr std::array<bool, 256> g_sharp_table = {
+  SEVEN_SHARP_TABLE_OCTAVES
+  SEVEN_SHARP_TABLE_OCTAVES
+  SEVEN_SHARP_TABLE_OCTAVES
+//C      C#    D      D#
+  false, true, false, true,
 };
 
 class BufferedReader

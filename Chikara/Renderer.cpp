@@ -1157,7 +1157,7 @@ void Renderer::drawFrame(float time)
       }
       Note* n = notes->front();
       if (n->end == -1)
-        break;
+        continue;
       if(n->end < n->start)
       {
         throw std::runtime_error("The fucking midi broke");
@@ -1165,7 +1165,9 @@ void Renderer::drawFrame(float time)
       if(n->start < time + pre_time)
       {
         notes->pop_front();
-        notes_shown.push_back(n);
+        notes_shown[n->key].push_front(n);
+        if (!g_sharp_table[n->key])
+          white_notes_shown++;
       }
       else
       {
@@ -1174,48 +1176,68 @@ void Renderer::drawFrame(float time)
     }
   }
 
-  if (notes_shown.size() > MAX_NOTES)
+  size_t notes_shown_size = 0;
+  for (auto& vec : notes_shown)
+    notes_shown_size += vec.size();
+
+  if (notes_shown_size > MAX_NOTES)
     throw std::runtime_error("UNIMPLEMENTED!!!!");
 
   void* data;
   vkMapMemory(device, instance_buffer_mem, 0, sizeof(InstanceData) * MAX_NOTES, 0, &data);
-  if (last_notes_shown_count > notes_shown.size())
-    memset((char*)data + last_notes_shown_count * sizeof(InstanceData), 0, sizeof(InstanceData) * (last_notes_shown_count - notes_shown.size()));
+  if (last_notes_shown_count > notes_shown_size)
+    memset((char*)data + last_notes_shown_count * sizeof(InstanceData), 0, sizeof(InstanceData) * (last_notes_shown_count - notes_shown_size));
 
   InstanceData* data_i = (InstanceData*)data;
   //cout << endl << "Notes playing: " << notes_shown.size();
 
-  last_notes_shown_count = notes_shown.size();
+  last_notes_shown_count = notes_shown_size;
 
-  for (auto [it, i] = std::tuple{ notes_shown.begin(), 0 }; it != notes_shown.end();)
-  {
-    Note* n = *it;
-    if (!n->noteon_played && time >= n->start) {
-      KDMAPI::SendDirectData(MAKELONG(MAKEWORD((n->channel) | (9 << 4), n->key), MAKEWORD(n->velocity, 0)));
-      n->noteon_played = true;
-    }
-    if(time >= n->end)
+  int white_idx = 0;
+  int sharp_idx = white_notes_shown;
+  for (auto& vec : notes_shown) {
+    for (auto it = vec.begin(); it != vec.end();)
     {
-      if (!n->noteoff_played) {
-        KDMAPI::SendDirectData(MAKELONG(MAKEWORD((n->channel) | (8 << 4), n->key), MAKEWORD(n->velocity, 0)));
-        n->noteoff_played = true;
+      Note* n = *it;
+      if (!n->noteon_played && time >= n->start) {
+        KDMAPI::SendDirectData(MAKELONG(MAKEWORD((n->channel) | (9 << 4), n->key), MAKEWORD(n->velocity, 0)));
+        n->noteon_played = true;
       }
-      data_i[i] = { 0, 0, 0, {0,0,0} };
-      delete n;
-      notes_shown.erase(it++);
-      i++;
-    }
-    else
-    {
-      data_i[i] = { static_cast<float>(n->start), static_cast<float>(n->end), n->key, {n->color.r,n->color.g,n->color.b} };
-      it++;
-      i++;
+      if (time >= n->end)
+      {
+        KDMAPI::SendDirectData(MAKELONG(MAKEWORD((n->channel) | (8 << 4), n->key), MAKEWORD(n->velocity, 0)));
+        if (g_sharp_table[n->key]) {
+          data_i[sharp_idx] = { 0, 0, 0, {0,0,0} };
+          sharp_idx++;
+        }
+        else
+        {
+          data_i[white_idx] = { 0, 0, 0, {0,0,0} };
+          white_idx++;
+          white_notes_shown--;
+        }
+        delete n;
+        vec.erase(it++);
+      }
+      else
+      {
+        if (g_sharp_table[n->key]) {
+          data_i[sharp_idx] = { static_cast<float>(n->start), static_cast<float>(n->end), n->key, {n->color.r,n->color.g,n->color.b} };
+          sharp_idx++;
+        }
+        else
+        {
+          data_i[white_idx] = { static_cast<float>(n->start), static_cast<float>(n->end), n->key, {n->color.r,n->color.g,n->color.b} };
+          white_idx++;
+        }
+        it++;
+      }
     }
   }
 
   int note_cmd_buf = 0;
   for (int i = 0; i < MAX_NOTES_MULT; i++) {
-    if (notes_shown.size() <= (MAX_NOTES_BASE * (i + 1))) {
+    if (notes_shown_size <= (MAX_NOTES_BASE * (i + 1))) {
       note_cmd_buf = i;
       break;
     }
