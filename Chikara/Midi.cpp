@@ -592,7 +592,7 @@ void MidiTrack::parseEvent(ThreadSafeDeque<Note*>** global_notes, ThreadSafeDequ
             Note* n = new Note();
             n->color = colors[channel];
             n->start = time;
-            n->end = -1;
+            n->end = INFINITY;
             n->key = key;
             n->channel = channel;
             n->velocity = vel;
