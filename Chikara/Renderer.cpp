@@ -1162,7 +1162,10 @@ void Renderer::drawFrame(float time)
       }
       Note* n = notes->front();
       if (n->end == -1)
+      {
+        notes->pop_front();
         continue;
+      }
       if(n->end < n->start)
       {
         throw std::runtime_error("The fucking midi broke");
