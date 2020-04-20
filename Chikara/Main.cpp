@@ -16,6 +16,8 @@ void Main::run(int argc, char** argv)
   KDMAPI::Init();
   midi = new Midi(argv[1]);
   r.note_buffer = midi->note_buffer;
+  r.misc_buffer = &midi->misc_events;
+  r.misc_buffer_it = midi->misc_events.begin();
   initWindow(); //Setup everything for the window
   initVulkan(); //Setup everything for Vulkan
   mainLoop(); //The main loop for the application

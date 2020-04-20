@@ -31,10 +31,6 @@ namespace KDMAPI {
 
     SendDirectData = (MMRESULT(*)(DWORD))GetProcAddress(dll_handle, "SendDirectData");
     TerminateKDMAPIStream = (BOOL(*)())GetProcAddress(dll_handle, "TerminateKDMAPIStream");
-
-    for (int i = 0; i < 16; i++) {
-      SendDirectData(MAKELONG(MAKEWORD(MAKEBYTE(i, 0x0C), 1), MAKEWORD(0, 0)));
-    }
   }
 
   void Destroy() {

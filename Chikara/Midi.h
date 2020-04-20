@@ -41,6 +41,13 @@ struct Tempo
   uint32_t tempo;
 };
 
+// After-touch, Control Change, Pitch Wheel, Program Change, Channel after-touch
+struct MiscEvent
+{
+  float time;
+  float msg;
+};
+
 // TODO (Khang): constexpr meta-programming is too hard, using macros for now...
 //                         C      C#    D      D#    E      F      F#    G      G#    A      A#    B
 #define SHARP_TABLE_OCTAVE false, true, false, true, false, false, true, false, true, false, true, false,
@@ -85,7 +92,7 @@ class MidiTrack
     ~MidiTrack();
     void parseDelta();
     void parseDeltaTime();
-    void parseEvent(std::list<Note*>** global_notes);
+    void parseEvent(std::list<Note*>** global_notes, std::vector<MiscEvent>* global_misc);
 
     bool ended = false;
     bool delta_parsed = false;
@@ -116,6 +123,7 @@ class Midi
     ~Midi();
 
     std::list<Note*>** note_buffer;
+    std::vector<MiscEvent> misc_events;
     Tempo* tempo_array;
     uint32_t tempo_count;
   private:

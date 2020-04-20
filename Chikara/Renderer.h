@@ -187,6 +187,8 @@ class Renderer
 {
 public:
   std::list<Note*>** note_buffer;
+  std::vector<MiscEvent>* misc_buffer;
+  std::vector<MiscEvent>::iterator misc_buffer_it;
   GLFWwindow* window;
   VkInstance inst;
   VkDebugUtilsMessengerEXT debug_msg;

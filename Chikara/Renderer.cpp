@@ -1145,6 +1145,11 @@ void Renderer::drawFrame(float time)
   //Update the Uniform Buffer
   updateUniformBuffer(img_index, time);
 
+  while (misc_buffer_it != misc_buffer->end() && time >= (*misc_buffer_it).time) {
+    KDMAPI::SendDirectData((*misc_buffer_it).msg);
+    misc_buffer_it++;
+  }
+
   for(int i = 0; i < 256; i++)
   {
     std::list<Note*>* notes = note_buffer[i];

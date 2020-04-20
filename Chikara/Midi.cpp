@@ -52,7 +52,7 @@ Midi::Midi(const char* file_name)
         if (time < track->tick_time)
           continue;
         while (time >= track->tick_time) {
-          track->parseEvent(note_buffer);
+          track->parseEvent(note_buffer, &misc_events);
           track->parseDeltaTime();
           if (track->ended)
             break;
@@ -143,7 +143,7 @@ void Midi::loadMidi()
         while (!track->ended)
         {
           track->parseDelta();
-          track->parseEvent(nullptr);
+          track->parseEvent(nullptr, nullptr);
         }
 
         mtx.lock();
@@ -477,7 +477,7 @@ double MidiTrack::multiplierFromTempo(uint32_t tempo, uint16_t ppq)
   return tempo / 1000000.0 / ppq;
 }
 
-void MidiTrack::parseEvent(std::list<Note*>** global_notes)
+void MidiTrack::parseEvent(std::list<Note*>** global_notes, std::vector<MiscEvent>* global_misc)
 {
   bool stage_2 = global_notes != nullptr;
   if(ended)
@@ -567,22 +567,33 @@ void MidiTrack::parseEvent(std::list<Note*>** global_notes)
         }
         break;
       case 0xA0: // Polyphonic Pressure
-        reader->readByte();
-        reader->readByte();
-        break;
       case 0xB0: // Controller
-        reader->readByte();
-        reader->readByte();
+      case 0xE0: // Pitch Wheel
+        if (stage_2)
+        {
+          MiscEvent event;
+          event.time = static_cast<float>(time);
+          event.msg = ((command & 0xFF) | ((reader->readByte() & 0xFF) << 8)) & 0xFFFF | ((reader->readByte() & 0xFF) << 16);
+          global_misc->push_back(event);
+        }
+        else
+        {
+          reader->skipBytes(2);
+        }
         break;
       case 0xC0: // Program Change
-        reader->readByte();
-        break;
       case 0xD0: // Channel Pressure
-        reader->readByte();
-        break;
-      case 0xE0: // Pitch Wheel
-        reader->readByte();
-        reader->readByte();
+        if (stage_2)
+        {
+          MiscEvent event;
+          event.time = static_cast<float>(time);
+          event.msg = ((cmd & 0xFF) | ((reader->readByte() & 0xFF) << 8));
+          global_misc->push_back(event);
+        }
+        else
+        {
+          reader->skipBytes(1);
+        }
         break;
       case 0xF0: // System Event
       {
