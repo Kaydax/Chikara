@@ -288,7 +288,7 @@ void Midi::LoaderThread()
   while (true) {
     bool* tracks_ended = new bool[track_count];
     memset(tracks_ended, 0, track_count);
-    while (seconds < renderer_time.load() + 10.0f)
+    while (seconds < renderer_time.load() + 30.0f)
     {
       for (int i = 0; i < track_count; i++)
       {
