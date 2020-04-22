@@ -73,9 +73,10 @@ layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec2 fragTexCoord;
 layout(location = 2) out vec2 vNoteSize;
 
-const int N_NOTES = 125;
+const int N_NOTES = 128;
 const float blackWidth = 0.75;
-const int nWhiteKeys = N_NOTES / 12 * 7 + (N_NOTES % 12);
+const int whiteMap[12] = int[12](0, 1, 1, 2, 2, 3, 4, 4, 5, 5, 6, 7);
+const int nWhiteKeys = N_NOTES / 12 * 7 + whiteMap[(N_NOTES % 12)];
 
 bool isBlackKey(int x)
 {

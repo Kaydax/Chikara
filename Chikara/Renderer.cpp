@@ -1204,6 +1204,7 @@ void Renderer::drawFrame(float time)
       Note* n = *it;
       if (!n->noteon_played && time >= n->start) {
         KDMAPI::SendDirectData(MAKELONG(MAKEWORD((n->channel) | (9 << 4), n->key), MAKEWORD(n->velocity, 0)));
+        //std::cout << "AAAAA: " << n->key << std::endl;
         n->noteon_played = true;
       }
       if (time >= n->end)
