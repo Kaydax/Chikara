@@ -1150,22 +1150,21 @@ void Renderer::drawFrame(float time)
     misc_buffer->pop_front();
   }
 
-  for(int i = 0; i < 256; i++)
-  {
+  concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i) {
     ThreadSafeDeque<Note*>* notes = note_buffer[i];
     //for(int j = 0; j < 1; j++)
-    while(true)
+    while (true)
     {
-      if(notes->size() == 0)
+      if (notes->size() == 0)
       {
         break;
       }
       Note* n = notes->front();
-      if(n->end < n->start)
+      if (n->end < n->start)
       {
         throw std::runtime_error("The fucking midi broke");
       }
-      if(n->start < time + pre_time)
+      if (n->start < time + pre_time)
       {
         notes->pop_front();
         notes_shown[n->key].push_front(n);
@@ -1176,7 +1175,7 @@ void Renderer::drawFrame(float time)
         break;
       }
     }
-  }
+    });
 
   size_t notes_shown_size = 0;
   for (auto& vec : notes_shown)
