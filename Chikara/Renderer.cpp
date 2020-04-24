@@ -1169,8 +1169,7 @@ void Renderer::drawFrame(float time)
       {
         notes->pop_front();
         notes_shown[n->key].push_front(n);
-        if (!g_sharp_table[n->key])
-          white_notes_shown++;
+        notes_per_key[i]++;
       }
       else
       {
@@ -1196,49 +1195,47 @@ void Renderer::drawFrame(float time)
 
   last_notes_shown_count = notes_shown_size;
 
-  int white_idx = 0;
-  int sharp_idx = white_notes_shown;
-  for (auto& vec : notes_shown) {
-    for (auto it = vec.begin(); it != vec.end();)
+  size_t key_indices[256] = {};
+  size_t cur_offset = 0;
+  
+  // yep, this iterates over the keys twice...
+  for (int i = 0; i < 256; i++) {
+    if (!g_sharp_table[i]) {
+      key_indices[i] = cur_offset;
+      cur_offset += notes_per_key[i];
+    }
+  }
+  for (int i = 0; i < 256; i++) {
+    if (g_sharp_table[i]) {
+      key_indices[i] = cur_offset;
+      cur_offset += notes_per_key[i];
+    }
+  }
+
+  concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i) {
+    auto& list = notes_shown[i];
+    for (auto it = list.begin(); it != list.end();)
     {
       Note* n = *it;
       if (!n->noteon_played && time >= n->start) {
         KDMAPI::SendDirectData(MAKELONG(MAKEWORD((n->channel) | (9 << 4), n->key), MAKEWORD(n->velocity, 0)));
-        //std::cout << "AAAAA: " << n->key << std::endl;
         n->noteon_played = true;
       }
       if (time >= n->end)
       {
         KDMAPI::SendDirectData(MAKELONG(MAKEWORD((n->channel) | (8 << 4), n->key), MAKEWORD(n->velocity, 0)));
-        if (g_sharp_table[n->key]) {
-          data_i[sharp_idx] = { 0, 0, 0, {0,0,0} };
-          sharp_idx++;
-        }
-        else
-        {
-          data_i[white_idx] = { 0, 0, 0, {0,0,0} };
-          white_idx++;
-          white_notes_shown--;
-        }
+        data_i[key_indices[i]++] = { 0, 0, 0, {0,0,0} };
+        notes_per_key[i]--;
         delete n;
-        *it = nullptr;
-        it = vec.erase(it);
+        it = list.erase(it);
       }
       else
       {
-        if (g_sharp_table[n->key]) {
-          data_i[sharp_idx] = { static_cast<float>(n->start), static_cast<float>(n->end), n->key, {n->color.r,n->color.g,n->color.b} };
-          sharp_idx++;
-        }
-        else
-        {
-          data_i[white_idx] = { static_cast<float>(n->start), static_cast<float>(n->end), n->key, {n->color.r,n->color.g,n->color.b} };
-          white_idx++;
-        }
+        data_i[key_indices[i]++] = { static_cast<float>(n->start), static_cast<float>(n->end), n->key, {n->color.r,n->color.g,n->color.b} };
         it++;
       }
     }
-  }
+    });
 
   int note_cmd_buf = 0;
   for (int i = 0; i < MAX_NOTES_MULT; i++) {
