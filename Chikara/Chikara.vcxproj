@@ -149,7 +149,8 @@
       </Command>
     </PostBuildEvent>
     <PreBuildEvent>
-      <Command>cd Shaders &amp;&amp; glslc triangle.vert -o vert.spv &amp;&amp; glslc triangle.frag -o frag.spv</Command>
+      <Command>cd Shaders &amp;&amp; compile_shaders</Command>
+      <Message>Compiling shaders...</Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
