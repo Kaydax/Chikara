@@ -6,6 +6,9 @@
 #include "Midi.h"
 #include "KDMAPI.h"
 
+#include "Shaders/frag.h"
+#include "Shaders/vert.h"
+
 Main m;
 
 #pragma region Create the instance
@@ -483,13 +486,9 @@ void Renderer::createDescriptorSets()
 
 void Renderer::createGraphicsPipeline()
 {
-  //Read the shader code files and put them into a buffer
-  auto vert_shader_code = readFile("Shaders/vert.spv");
-  auto frag_shader_code = readFile("Shaders/frag.spv");
-
   //Create the shader modules
-  VkShaderModule vert_shader_module = createShaderModule(vert_shader_code);
-  VkShaderModule frag_shader_module = createShaderModule(frag_shader_code);
+  VkShaderModule vert_shader_module = createShaderModule(vert_spv, vert_spv_length);
+  VkShaderModule frag_shader_module = createShaderModule(frag_spv, frag_spv_length);
 
   //Now to actually use the shaders we have to assign it to a pipeline stage
   VkPipelineShaderStageCreateInfo vert_shader_stage_info = {};
@@ -650,12 +649,12 @@ void Renderer::createGraphicsPipeline()
   vkDestroyShaderModule(device, vert_shader_module, nullptr);
 }
 
-VkShaderModule Renderer::createShaderModule(const std::vector<char>& code)
+VkShaderModule Renderer::createShaderModule(const char* code, size_t length)
 {
   VkShaderModuleCreateInfo create_info = {};
   create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-  create_info.codeSize = code.size();
-  create_info.pCode = reinterpret_cast<const uint32_t*>(code.data());
+  create_info.codeSize = length;
+  create_info.pCode = reinterpret_cast<const uint32_t*>(code);
 
   VkShaderModule shader_module;
   if(vkCreateShaderModule(device, &create_info, nullptr, &shader_module) != VK_SUCCESS)

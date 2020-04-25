@@ -1,0 +1,1 @@
+bin2c.exe is compiled for 64-bit windows with msvc and its source is licensed as public domain. the source used to compile it is commit 598395c23508bd4a2c916bfdab8c04a101abc62e of https://github.com/gwilymk/bin2c

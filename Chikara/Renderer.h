@@ -306,7 +306,7 @@ private:
 
   VkCommandBuffer beginSingleTimeCommands();
 
-  VkShaderModule createShaderModule(const std::vector<char>& code);
+  VkShaderModule createShaderModule(const char* code, size_t length);
 
   VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& available_formats);
   VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& available_present_modes);

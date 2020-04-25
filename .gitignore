@@ -3,6 +3,13 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+# Chikara
+# Generated files
+vert.h
+vert.spv
+frag.h
+frag.spv
+
 # User-specific files
 *.rsuser
 *.suo
