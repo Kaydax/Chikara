@@ -453,12 +453,15 @@ void Renderer::createDescriptorSets()
     buffer_info.offset = 0;
     buffer_info.range = sizeof(UniformBufferObject);
 
+    /*
     VkDescriptorImageInfo img_info = {};
     img_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     img_info.imageView = tex_img_view;
     img_info.sampler = tex_sampler;
+    */
 
-    std::array<VkWriteDescriptorSet, 2> descriptor_writes = {};
+    // remember to change this to 2 if uncommenting the other code
+    std::array<VkWriteDescriptorSet, 1> descriptor_writes = {};
     descriptor_writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptor_writes[0].dstSet = descriptor_sets[i];
     descriptor_writes[0].dstBinding = 0;
@@ -467,6 +470,7 @@ void Renderer::createDescriptorSets()
     descriptor_writes[0].descriptorCount = 1;
     descriptor_writes[0].pBufferInfo = &buffer_info;
 
+    /*
     descriptor_writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptor_writes[1].dstSet = descriptor_sets[i];
     descriptor_writes[1].dstBinding = 1;
@@ -474,6 +478,7 @@ void Renderer::createDescriptorSets()
     descriptor_writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptor_writes[1].descriptorCount = 1;
     descriptor_writes[1].pImageInfo = &img_info;
+    */
 
 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptor_writes.size()), descriptor_writes.data(), 0, nullptr);

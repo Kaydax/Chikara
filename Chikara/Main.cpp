@@ -50,9 +50,9 @@ void Main::initVulkan()
   r.createCommandPool();
   r.createDepthResources();
   r.createFramebuffers();
-  r.createTextureImage();
-  r.createTextureImageView();
-  r.createTextureSampler();
+  //r.createTextureImage();
+  //r.createTextureImageView();
+  //r.createTextureSampler();
   r.createVertexBuffer();
   r.createInstanceBuffer();
   r.createIndexBuffer();
@@ -169,7 +169,7 @@ void Main::cleanup()
 
   cleanupSwapChain();
 
-  vkDestroySampler(r.device, r.tex_sampler, nullptr);
+  //vkDestroySampler(r.device, r.tex_sampler, nullptr);
   vkDestroyImageView(r.device, r.tex_img_view, nullptr);
   vkDestroyImage(r.device, r.tex_img, nullptr);
   vkFreeMemory(r.device, r.tex_img_mem, nullptr);
