@@ -1149,11 +1149,6 @@ void Renderer::drawFrame(float time)
   //Update the Uniform Buffer
   updateUniformBuffer(img_index, time);
 
-  while (misc_buffer->size() != 0 && time >= misc_buffer->front().time) {
-    KDMAPI::SendDirectData(misc_buffer->front().msg);
-    misc_buffer->pop_front();
-  }
-
   concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i) {
     ThreadSafeDeque<Note*>* notes = note_buffer[i];
     //for(int j = 0; j < 1; j++)
@@ -1220,13 +1215,9 @@ void Renderer::drawFrame(float time)
     for (auto it = list.begin(); it != list.end();)
     {
       Note* n = *it;
-      if (!n->noteon_played && time >= n->start) {
-        KDMAPI::SendDirectData(MAKELONG(MAKEWORD((n->channel) | (9 << 4), n->key), MAKEWORD(n->velocity, 0)));
-        n->noteon_played = true;
-      }
       if (time >= n->end)
       {
-        KDMAPI::SendDirectData(MAKELONG(MAKEWORD((n->channel) | (8 << 4), n->key), MAKEWORD(n->velocity, 0)));
+        //event_queue[i].push_back(MAKELONG(MAKEWORD((n->channel) | (8 << 4), n->key), MAKEWORD(n->velocity, 0)));
         data_i[key_indices[i]++] = { 0, 0, 0, {0,0,0} };
         notes_per_key[i]--;
         delete n;
@@ -1238,7 +1229,7 @@ void Renderer::drawFrame(float time)
         it++;
       }
     }
-    });
+  });
 
   int note_cmd_buf = 0;
   for (int i = 0; i < MAX_NOTES_MULT; i++) {

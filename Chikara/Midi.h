@@ -10,7 +10,10 @@
 #include <ppl.h>
 #include <mutex>
 #include <shared_mutex>
+#include "readerwriterqueue.h"
 #include "Misc.h"
+
+#define PLAYBACK_TERMINATE_EVENT 0xDEADBEEF
 
 struct MidiChunk
 {
@@ -31,9 +34,6 @@ struct Note
   float end;
   int key;
   NoteColor color;
-  char channel;
-  char velocity;
-  bool noteon_played = false;
 };
 
 struct Tempo
@@ -93,7 +93,7 @@ class MidiTrack
     ~MidiTrack();
     void parseDelta();
     void parseDeltaTime();
-    void parseEvent(ThreadSafeDeque<Note*>** global_notes, ThreadSafeDeque<MiscEvent>* global_misc);
+    void parseEvent(ThreadSafeDeque<Note*>** global_notes, moodycamel::ReaderWriterQueue<MiscEvent>* global_misc);
 
     bool ended = false;
     bool delta_parsed = false;
@@ -123,9 +123,10 @@ class Midi
     Midi(const char* file_name);
     ~Midi();
     void SpawnLoaderThread();
+    void SpawnPlaybackThread(std::chrono::steady_clock::time_point start_time);
 
     ThreadSafeDeque<Note*>** note_buffer;
-    ThreadSafeDeque<MiscEvent> misc_events;
+    moodycamel::ReaderWriterQueue<MiscEvent> misc_events;
     Tempo* tempo_array;
     uint32_t tempo_count;
     std::atomic<float> renderer_time;
@@ -133,6 +134,7 @@ class Midi
     void loadMidi();
     void assertText(const char* text);
     void LoaderThread();
+    void PlaybackThread();
     uint8_t readByte();
     uint16_t parseShort();
     uint32_t parseInt();
@@ -146,4 +148,6 @@ class Midi
     uint32_t track_count;
     std::mutex mtx;
     std::thread loader_thread;
+    std::thread playback_thread;
+    std::chrono::steady_clock::time_point start_time;
 };

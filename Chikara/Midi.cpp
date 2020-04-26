@@ -1,4 +1,6 @@
+#include <Windows.h>
 #include "Midi.h"
+#include "KDMAPI.h"
 
 NoteColor colors[16] = {
   {51 / 255.0f, 102 / 255.0f, 255 / 255.0f},
@@ -324,7 +326,40 @@ void Midi::LoaderThread()
     if (all_ended)
       break;
   }
+  misc_events.enqueue({ static_cast<float>(seconds), PLAYBACK_TERMINATE_EVENT });
   printf("\nloader thread exiting\n");
+}
+
+void Midi::SpawnPlaybackThread(std::chrono::steady_clock::time_point _start_time)
+{
+  start_time = _start_time;
+  playback_thread = std::thread(&Midi::PlaybackThread, this);
+}
+
+void Midi::PlaybackThread()
+{
+  // this not only plays pitch bend and other events, but normal note events too
+  while (true) {
+    bool stop_requested = false;
+    auto current_time = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
+    MiscEvent event;
+    while (misc_events.try_dequeue(event)) {
+      while (time < event.time) {
+        current_time = std::chrono::high_resolution_clock::now();
+        time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
+      }
+      auto msg = event.msg;
+      if (msg == PLAYBACK_TERMINATE_EVENT) {
+        stop_requested = true;
+        break;
+      }
+      KDMAPI::SendDirectData(msg);
+    }
+    if (stop_requested)
+      break;
+  }
+  printf("\nplayback thread exiting\n");
 }
 
 #pragma endregion
@@ -530,7 +565,7 @@ double MidiTrack::multiplierFromTempo(uint32_t tempo, uint16_t ppq)
   return tempo / 1000000.0 / ppq;
 }
 
-void MidiTrack::parseEvent(ThreadSafeDeque<Note*>** global_notes, ThreadSafeDeque<MiscEvent>* global_misc)
+void MidiTrack::parseEvent(ThreadSafeDeque<Note*>** global_notes, moodycamel::ReaderWriterQueue<MiscEvent>* global_misc)
 {
   bool stage_2 = global_notes != nullptr;
   if(ended)
@@ -568,6 +603,11 @@ void MidiTrack::parseEvent(ThreadSafeDeque<Note*>** global_notes, ThreadSafeDequ
             Note* n = stack->front();
             stack->pop_front();
             n->end = time;
+
+            MiscEvent event;
+            event.time = static_cast<float>(time);
+            event.msg = MAKELONG(MAKEWORD((channel) | (8 << 4), n->key), MAKEWORD(vel, 0));
+            global_misc->enqueue(event);
           }
           break;
         }
@@ -594,11 +634,14 @@ void MidiTrack::parseEvent(ThreadSafeDeque<Note*>** global_notes, ThreadSafeDequ
             n->start = time;
             n->end = INFINITY;
             n->key = key;
-            n->channel = channel;
-            n->velocity = vel;
 
             stack->push_back(n);
             global_notes[key]->push_back(n);
+
+            MiscEvent event;
+            event.time = static_cast<float>(time);
+            event.msg = MAKELONG(MAKEWORD((channel) | (9 << 4), n->key), MAKEWORD(vel, 0));
+            global_misc->enqueue(event);
 
             notes_parsed++;
           }
@@ -609,6 +652,11 @@ void MidiTrack::parseEvent(ThreadSafeDeque<Note*>** global_notes, ThreadSafeDequ
               Note* n = stack->front();
               stack->pop_front();
               n->end = time;
+
+              MiscEvent event;
+              event.time = static_cast<float>(time);
+              event.msg = MAKELONG(MAKEWORD((channel) | (8 << 4), n->key), MAKEWORD(vel, 0));
+              global_misc->enqueue(event);
             }
           }
           break;
@@ -627,7 +675,7 @@ void MidiTrack::parseEvent(ThreadSafeDeque<Note*>** global_notes, ThreadSafeDequ
           MiscEvent event;
           event.time = static_cast<float>(time);
           event.msg = ((command & 0xFF) | ((reader->readByte() & 0xFF) << 8)) & 0xFFFF | ((reader->readByte() & 0xFF) << 16);
-          global_misc->push_back(event);
+          global_misc->enqueue(event);
         }
         else
         {
@@ -641,7 +689,7 @@ void MidiTrack::parseEvent(ThreadSafeDeque<Note*>** global_notes, ThreadSafeDequ
           MiscEvent event;
           event.time = static_cast<float>(time);
           event.msg = ((cmd & 0xFF) | ((reader->readByte() & 0xFF) << 8));
-          global_misc->push_back(event);
+          global_misc->enqueue(event);
         }
         else
         {

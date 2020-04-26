@@ -187,7 +187,6 @@ class Renderer
 {
 public:
   ThreadSafeDeque<Note*>** note_buffer;
-  ThreadSafeDeque<MiscEvent>* misc_buffer;
   std::atomic<float>* midi_renderer_time;
   GLFWwindow* window;
   VkInstance inst;

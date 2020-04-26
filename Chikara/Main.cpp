@@ -16,8 +16,8 @@ void Main::run(int argc, char** argv)
   KDMAPI::Init();
   midi = new Midi(argv[1]);
   r.note_buffer = midi->note_buffer;
-  r.misc_buffer = &midi->misc_events;
   r.midi_renderer_time = &midi->renderer_time;
+  // playback thread spawned in mainLoop to ensure it's synced with render
   midi->SpawnLoaderThread();
   initWindow(); //Setup everything for the window
   initVulkan(); //Setup everything for Vulkan
@@ -72,6 +72,7 @@ void Main::mainLoop()
 {
   static auto start_time = std::chrono::high_resolution_clock::now();
   r.pre_time = 0.25;
+  midi->SpawnPlaybackThread(start_time);
   while(!glfwWindowShouldClose(r.window))
   {
     auto current_time = std::chrono::high_resolution_clock::now();
