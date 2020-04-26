@@ -46,7 +46,7 @@ struct Tempo
 struct MiscEvent
 {
   float time;
-  float msg;
+  uint32_t msg;
 };
 
 // TODO (Khang): constexpr meta-programming is too hard, using macros for now...
