@@ -326,7 +326,7 @@ void Midi::LoaderThread()
     if (all_ended)
       break;
   }
-  misc_events.enqueue({ static_cast<float>(seconds), PLAYBACK_TERMINATE_EVENT });
+  misc_events.enqueue({ static_cast<float>(seconds), (float)PLAYBACK_TERMINATE_EVENT });
   printf("\nloader thread exiting\n");
 }
 
