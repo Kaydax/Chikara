@@ -85,11 +85,11 @@ Midi::~Midi()
 {
   for(int i = 0; i < 256; i++)
   {
-    ThreadSafeDeque<Note*>* notes = note_buffer[i];
-    while(notes->size() != 0)
+    moodycamel::ReaderWriterQueue<Note*>* notes = note_buffer[i];
+    Note* n;
+    while(notes->try_dequeue(n))
     {
-      delete notes->front();
-      notes->pop_front();
+      delete n;
     }
     delete notes;
   }
@@ -225,10 +225,10 @@ void Midi::loadMidi()
       readers[i]->global_tempo_event_count = tempo_count;
     }
 
-    note_buffer = new ThreadSafeDeque<Note*>* [256];
+    note_buffer = new moodycamel::ReaderWriterQueue<Note*>* [256];
     for(int i = 0; i < 256; i++)
     {
-      note_buffer[i] = new ThreadSafeDeque<Note*>();
+      note_buffer[i] = new moodycamel::ReaderWriterQueue<Note*>();
     }
 
   } catch(const char* e)
@@ -565,7 +565,7 @@ double MidiTrack::multiplierFromTempo(uint32_t tempo, uint16_t ppq)
   return tempo / 1000000.0 / ppq;
 }
 
-void MidiTrack::parseEvent(ThreadSafeDeque<Note*>** global_notes, moodycamel::ReaderWriterQueue<MiscEvent>* global_misc)
+void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<Note*>** global_notes, moodycamel::ReaderWriterQueue<MiscEvent>* global_misc)
 {
   bool stage_2 = global_notes != nullptr;
   if(ended)
@@ -636,7 +636,7 @@ void MidiTrack::parseEvent(ThreadSafeDeque<Note*>** global_notes, moodycamel::Re
             n->key = key;
 
             stack->push_back(n);
-            global_notes[key]->push_back(n);
+            global_notes[key]->enqueue(n);
 
             MiscEvent event;
             event.time = static_cast<float>(time);

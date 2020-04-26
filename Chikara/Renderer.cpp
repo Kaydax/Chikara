@@ -1155,22 +1155,21 @@ void Renderer::drawFrame(float time)
   updateUniformBuffer(img_index, time);
 
   concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i) {
-    ThreadSafeDeque<Note*>* notes = note_buffer[i];
+    moodycamel::ReaderWriterQueue<Note*>* notes = note_buffer[i];
     //for(int j = 0; j < 1; j++)
     while (true)
     {
-      if (notes->size() == 0)
-      {
+      Note** peek = notes->peek();
+      if (peek == nullptr)
         break;
-      }
-      Note* n = notes->front();
+      Note* n = *peek;
       if (n->end < n->start)
       {
         throw std::runtime_error("The fucking midi broke");
       }
       if (n->start < time + pre_time)
       {
-        notes->pop_front();
+        notes->try_dequeue(n);
         notes_shown[n->key].push_front(n);
         notes_per_key[i]++;
       }

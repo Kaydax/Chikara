@@ -93,7 +93,7 @@ class MidiTrack
     ~MidiTrack();
     void parseDelta();
     void parseDeltaTime();
-    void parseEvent(ThreadSafeDeque<Note*>** global_notes, moodycamel::ReaderWriterQueue<MiscEvent>* global_misc);
+    void parseEvent(moodycamel::ReaderWriterQueue<Note*>** global_notes, moodycamel::ReaderWriterQueue<MiscEvent>* global_misc);
 
     bool ended = false;
     bool delta_parsed = false;
@@ -125,7 +125,7 @@ class Midi
     void SpawnLoaderThread();
     void SpawnPlaybackThread(std::chrono::steady_clock::time_point start_time);
 
-    ThreadSafeDeque<Note*>** note_buffer;
+    moodycamel::ReaderWriterQueue<Note*>** note_buffer;
     moodycamel::ReaderWriterQueue<MiscEvent> misc_events;
     Tempo* tempo_array;
     uint32_t tempo_count;
