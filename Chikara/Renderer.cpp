@@ -6,8 +6,13 @@
 #include "Midi.h"
 #include "KDMAPI.h"
 
+// msvc complains about narrowing conversion with bin2c
+#pragma warning(push)
+#pragma warning(disable : 4838)
+#pragma warning(disable : 4309)
 #include "Shaders/frag.h"
 #include "Shaders/vert.h"
+#pragma warning(pop)
 
 Main m;
 
