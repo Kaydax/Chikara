@@ -512,12 +512,6 @@ void MidiTrack::deleteNoteStacks()
     for(int i = 0; i < 256 * 16; i++)
     {
       std::list<Note*>* stack = note_stacks[i];
-      while(!stack->empty())
-      {
-        Note* n = stack->front();
-        delete n;
-        stack->pop_front();
-      }
       delete note_stacks[i];
     }
     delete[] note_stacks;
@@ -602,7 +596,7 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<Note*>** global_notes, 
           {
             Note* n = stack->front();
             stack->pop_front();
-            n->end = time;
+            n->end = static_cast<float>(time);
 
             MiscEvent event;
             event.time = static_cast<float>(time);
@@ -628,7 +622,6 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<Note*>** global_notes, 
 
           if (vel > 0)
           {
-
             Note* n = new Note();
             n->color = colors[channel];
             n->start = time;
