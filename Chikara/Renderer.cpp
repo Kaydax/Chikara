@@ -589,7 +589,7 @@ void Renderer::createGraphicsPipeline()
   depth_stencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
   depth_stencil.depthTestEnable = VK_TRUE;
   depth_stencil.depthWriteEnable = VK_TRUE;
-  depth_stencil.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+  depth_stencil.depthCompareOp = VK_COMPARE_OP_LESS;
   depth_stencil.depthBoundsTestEnable = VK_FALSE;
   depth_stencil.stencilTestEnable = VK_FALSE;
 
@@ -1202,13 +1202,13 @@ void Renderer::drawFrame(float time)
   
   // yep, this iterates over the keys twice...
   for (int i = 0; i < 256; i++) {
-    if (!g_sharp_table[i]) {
+    if (g_sharp_table[i]) {
       key_indices[i] = cur_offset;
       cur_offset += notes_per_key[i];
     }
   }
   for (int i = 0; i < 256; i++) {
-    if (g_sharp_table[i]) {
+    if (!g_sharp_table[i]) {
       key_indices[i] = cur_offset;
       cur_offset += notes_per_key[i];
     }
