@@ -6,7 +6,7 @@
 Renderer r;
 Midi* midi;
 
-void Main::run(int argc, char** argv)
+void Main::run(int argc, wchar_t** argv)
 {
   if (argc < 2) {
     printf("Usage: Chikara.exe [midi]\n");
@@ -205,7 +205,7 @@ void Main::cleanup()
 
 #pragma endregion
 
-int main(int argc, char** argv)
+int wmain(int argc, wchar_t** argv)
 {
   Main app; //Get the main class and call it app
 

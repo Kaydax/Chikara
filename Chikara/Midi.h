@@ -120,7 +120,7 @@ class MidiTrack
 class Midi
 {
   public:
-    Midi(const char* file_name);
+    Midi(wchar_t* file_name);
     ~Midi();
     void SpawnLoaderThread();
     void SpawnPlaybackThread(std::chrono::steady_clock::time_point start_time);

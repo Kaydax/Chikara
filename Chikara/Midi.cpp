@@ -23,7 +23,7 @@ NoteColor colors[16] = {
 
 #pragma region Midi Class
 
-Midi::Midi(const char* file_name)
+Midi::Midi(wchar_t* file_name)
 {
   //Open the file, seek to the end of the file and save that to a var, then return to the start of the file
   file_stream.open(file_name, std::ios::binary | std::ios::ate);
