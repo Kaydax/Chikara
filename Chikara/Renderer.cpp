@@ -1161,11 +1161,8 @@ void Renderer::drawFrame(float time)
       }
       if (n->start < time + pre_time)
       {
-        Note new_note;
-        memcpy(&new_note, n, sizeof(Note));
         notes->try_dequeue(n);
-        notes_shown[n->key].push_front(new_note);
-        delete n;
+        notes_shown[n->key].push_front(n);
         notes_per_key[i]++;
       }
       else
@@ -1213,12 +1210,13 @@ void Renderer::drawFrame(float time)
     auto& list = notes_shown[i];
     for (auto it = list.begin(); it != list.end();)
     {
-      Note* n = &*it;
+      Note* n = *it;
       if (time >= n->end)
       {
         //event_queue[i].push_back(MAKELONG(MAKEWORD((n->channel) | (8 << 4), n->key), MAKEWORD(n->velocity, 0)));
         data_i[key_indices[i]++] = { 0, 0, 0, {0,0,0} };
         notes_per_key[i]--;
+        delete n;
         it = list.erase(it);
       }
       else
