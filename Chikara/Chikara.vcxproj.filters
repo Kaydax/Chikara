@@ -14,7 +14,7 @@
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
     <Filter Include="Header Files\Shaders">
-      <UniqueIdentifier>{2ea3289c-b3bf-46b0-89f6-34291eb2679a}</UniqueIdentifier>
+      <UniqueIdentifier>{24de410f-c133-412f-9f66-f287feb4cc9b}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -50,10 +50,10 @@
     <ClInclude Include="Misc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Shaders\frag.h">
+    <ClInclude Include="Shaders\notes_f.h">
       <Filter>Header Files\Shaders</Filter>
     </ClInclude>
-    <ClInclude Include="Shaders\vert.h">
+    <ClInclude Include="Shaders\notes_v.h">
       <Filter>Header Files\Shaders</Filter>
     </ClInclude>
   </ItemGroup>

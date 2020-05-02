@@ -206,21 +206,24 @@ public:
   std::vector<VkImageView> swap_chain_img_views;
   std::vector<VkFramebuffer> swap_chain_framebuffers;
 
-  VkRenderPass render_pass;
+  // render pass #1: note waterfall
+  VkRenderPass note_render_pass;
   VkDescriptorSetLayout descriptor_set_layout;
-  VkPipelineLayout pl_layout;
-  VkPipeline graphics_pipeline;
+  VkPipelineLayout note_pipeline_layout;
+  VkPipeline note_pipeline;
+  VkBuffer note_vertex_buffer;
+  VkDeviceMemory note_vertex_buffer_mem;
+  VkBuffer note_instance_buffer;
+  VkDeviceMemory note_instance_buffer_mem;
+  VkBuffer note_index_buffer;
+  VkDeviceMemory note_index_buffer_mem;
+
+  // render pass #2: keyboard
+  // ...
 
   VkCommandPool cmd_pool;
   VkDescriptorPool descriptor_pool;
   std::vector<VkDescriptorSet> descriptor_sets;
-
-  VkBuffer vertex_buffer;
-  VkDeviceMemory vertex_buffer_mem;
-  VkBuffer instance_buffer;
-  VkDeviceMemory instance_buffer_mem;
-  VkBuffer index_buffer;
-  VkDeviceMemory index_buffer_mem;
 
   VkImage tex_img;
   VkDeviceMemory tex_img_mem;
@@ -260,19 +263,25 @@ public:
   void createLogicalDevice();
   void createSwapChain();
   void createImageViews();
-  void createRenderPass();
   void createDescriptorSetLayout();
-  void createGraphicsPipeline();
+  void createGraphicsPipeline(const char* vert_spv, size_t vert_spv_length, const char* frag_spv, size_t frag_spv_length, VkRenderPass render_pass, VkPipelineLayout* layout, VkPipeline* pipeline);
   void createFramebuffers();
   void createCommandPool();
   void createDepthResources();
   void createTextureImage();
   void createTextureImageView();
   void createTextureSampler();
-  void createVertexBuffer();
-  void createInstanceBuffer();
-  void createIndexBuffer();
-  void createUniformBuffers();
+
+  // render pass #1: note waterfall
+  void createNoteRenderPass();
+  void createNoteVertexBuffer();
+  void createNoteInstanceBuffer();
+  void createNoteIndexBuffer();
+  void createNoteUniformBuffers();
+
+  // render pass #2: keyboard
+  // ...
+
   void createDescriptorPool();
   void createDescriptorSets();
   void createCommandBuffers();

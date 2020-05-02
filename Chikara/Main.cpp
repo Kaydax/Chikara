@@ -3,6 +3,14 @@
 #include "KDMAPI.h"
 #endif
 
+// msvc complains about narrowing conversion with bin2c
+#pragma warning(push)
+#pragma warning(disable : 4838)
+#pragma warning(disable : 4309)
+#include "Shaders/notes_f.h"
+#include "Shaders/notes_v.h"
+#pragma warning(pop)
+
 Renderer r;
 Midi* midi;
 
@@ -44,19 +52,19 @@ void Main::initVulkan()
   r.createLogicalDevice(); //Create the logical device to use
   r.createSwapChain();
   r.createImageViews();
-  r.createRenderPass();
+  r.createNoteRenderPass();
   r.createDescriptorSetLayout();
-  r.createGraphicsPipeline();
+  r.createGraphicsPipeline(notes_v, notes_v_length, notes_f, notes_f_length, r.note_render_pass, &r.note_pipeline_layout, &r.note_pipeline);
   r.createCommandPool();
   r.createDepthResources();
   r.createFramebuffers();
   //r.createTextureImage();
   //r.createTextureImageView();
   //r.createTextureSampler();
-  r.createVertexBuffer();
-  r.createInstanceBuffer();
-  r.createIndexBuffer();
-  r.createUniformBuffers();
+  r.createNoteVertexBuffer();
+  r.createNoteInstanceBuffer();
+  r.createNoteIndexBuffer();
+  r.createNoteUniformBuffers();
   r.createDescriptorPool();
   r.createDescriptorSets();
   r.createCommandBuffers();
@@ -111,9 +119,9 @@ void Main::cleanupSwapChain()
 
   vkFreeCommandBuffers(r.device, r.cmd_pool, static_cast<uint32_t>(r.cmd_buffers.size()), r.cmd_buffers.data());
 
-  vkDestroyPipeline(r.device, r.graphics_pipeline, nullptr);
-  vkDestroyPipelineLayout(r.device, r.pl_layout, nullptr);
-  vkDestroyRenderPass(r.device, r.render_pass, nullptr);
+  vkDestroyPipeline(r.device, r.note_pipeline, nullptr);
+  vkDestroyPipelineLayout(r.device, r.note_pipeline_layout, nullptr);
+  vkDestroyRenderPass(r.device, r.note_render_pass, nullptr);
 
   for(size_t i = 0; i < r.swap_chain_img_views.size(); i++)
   {
@@ -147,11 +155,11 @@ void Main::recreateSwapChain()
 
   r.createSwapChain();
   r.createImageViews();
-  r.createRenderPass();
-  r.createGraphicsPipeline();
+  r.createNoteRenderPass();
+  r.createGraphicsPipeline(notes_v, notes_v_length, notes_f, notes_f_length, r.note_render_pass, &r.note_pipeline_layout, &r.note_pipeline);
   r.createDepthResources();
   r.createFramebuffers();
-  r.createUniformBuffers();
+  r.createNoteUniformBuffers();
   r.createDescriptorPool();
   r.createDescriptorSets();
   r.createCommandBuffers();
@@ -177,14 +185,14 @@ void Main::cleanup()
 
   vkDestroyDescriptorSetLayout(r.device, r.descriptor_set_layout, nullptr);
 
-  vkDestroyBuffer(r.device, r.index_buffer, nullptr);
-  vkFreeMemory(r.device, r.index_buffer_mem, nullptr);
+  vkDestroyBuffer(r.device, r.note_index_buffer, nullptr);
+  vkFreeMemory(r.device, r.note_index_buffer_mem, nullptr);
 
-  vkDestroyBuffer(r.device, r.instance_buffer, nullptr);
-  vkFreeMemory(r.device, r.instance_buffer_mem, nullptr);
+  vkDestroyBuffer(r.device, r.note_instance_buffer, nullptr);
+  vkFreeMemory(r.device, r.note_instance_buffer_mem, nullptr);
 
-  vkDestroyBuffer(r.device, r.vertex_buffer, nullptr);
-  vkFreeMemory(r.device, r.vertex_buffer_mem, nullptr);
+  vkDestroyBuffer(r.device, r.note_vertex_buffer, nullptr);
+  vkFreeMemory(r.device, r.note_vertex_buffer_mem, nullptr);
 
   for(size_t i = 0; i < max_frames_in_flight; i++)
   {

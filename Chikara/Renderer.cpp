@@ -6,14 +6,6 @@
 #include "Midi.h"
 #include "KDMAPI.h"
 
-// msvc complains about narrowing conversion with bin2c
-#pragma warning(push)
-#pragma warning(disable : 4838)
-#pragma warning(disable : 4309)
-#include "Shaders/frag.h"
-#include "Shaders/vert.h"
-#pragma warning(pop)
-
 Main m;
 
 #pragma region Create the instance
@@ -320,7 +312,7 @@ void Renderer::createImageViews()
 
 #pragma region Render Pass
 
-void Renderer::createRenderPass()
+void Renderer::createNoteRenderPass()
 {
   //Setup the color attachment
   VkAttachmentDescription color_attachment = {};
@@ -377,9 +369,9 @@ void Renderer::createRenderPass()
   render_pass_info.dependencyCount = 1;
   render_pass_info.pDependencies = &dependency;
 
-  if(vkCreateRenderPass(device, &render_pass_info, nullptr, &render_pass) != VK_SUCCESS)
+  if (vkCreateRenderPass(device, &render_pass_info, nullptr, &note_render_pass) != VK_SUCCESS)
   {
-    throw std::runtime_error("VKERR: Failed to create render pass!");
+    throw std::runtime_error("VKERR: Failed to create note render pass!");
   }
 }
 
@@ -494,7 +486,7 @@ void Renderer::createDescriptorSets()
 
 #pragma region Create the graphics pipeline
 
-void Renderer::createGraphicsPipeline()
+void Renderer::createGraphicsPipeline(const char* vert_spv, size_t vert_spv_length, const char* frag_spv, size_t frag_spv_length, VkRenderPass render_pass, VkPipelineLayout* layout, VkPipeline* pipeline)
 {
   //Create the shader modules
   VkShaderModule vert_shader_module = createShaderModule(vert_spv, vert_spv_length);
@@ -617,7 +609,7 @@ void Renderer::createGraphicsPipeline()
   pipeline_layout_info.pushConstantRangeCount = 0; // Optional
   pipeline_layout_info.pPushConstantRanges = nullptr; // Optional
 
-  if(vkCreatePipelineLayout(device, &pipeline_layout_info, nullptr, &pl_layout) != VK_SUCCESS)
+  if(vkCreatePipelineLayout(device, &pipeline_layout_info, nullptr, layout) != VK_SUCCESS)
   {
     throw std::runtime_error("VKERR: Failed to create pipeline layout!");
   }
@@ -639,13 +631,13 @@ void Renderer::createGraphicsPipeline()
   pipeline_info.pDepthStencilState = &depth_stencil;
   pipeline_info.pColorBlendState = &color_blending;
   pipeline_info.pDynamicState = nullptr; // Optional
-  pipeline_info.layout = pl_layout;
+  pipeline_info.layout = *layout;
   pipeline_info.renderPass = render_pass;
   pipeline_info.subpass = 0;
   pipeline_info.basePipelineHandle = VK_NULL_HANDLE; // Optional | Allows us to create a new graphics pipeline deriving from an existing pipeline
   pipeline_info.basePipelineIndex = -1; // Optional | Allows us to create a new graphics pipeline deriving from an existing pipeline
 
-  if(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &graphics_pipeline) != VK_SUCCESS)
+  if(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, pipeline) != VK_SUCCESS)
   {
     throw std::runtime_error("VKERR: Failed to create graphics pipeline!");
   }
@@ -704,7 +696,7 @@ void Renderer::createFramebuffers()
 
     VkFramebufferCreateInfo framebuffer_info = {};
     framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    framebuffer_info.renderPass = render_pass;
+    framebuffer_info.renderPass = note_render_pass;
     framebuffer_info.attachmentCount = static_cast<uint32_t>(attachments.size());
     framebuffer_info.pAttachments = attachments.data();
     framebuffer_info.width = swap_chain_extent.width;
@@ -908,7 +900,7 @@ void Renderer::transitionImageLayout(VkImage img, VkFormat format, VkImageLayout
 
 #pragma region Buffers
 
-void Renderer::createVertexBuffer()
+void Renderer::createNoteVertexBuffer()
 {
   // this data will be replaced with instancing
   Vertex vertices[] {
@@ -928,19 +920,19 @@ void Renderer::createVertexBuffer()
   memcpy(data, vertices, sizeof(vertices));
   vkUnmapMemory(device, staging_buffer_mem);
 
-  createBuffer(sizeof(vertices), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertex_buffer, vertex_buffer_mem);
-  copyBuffer(staging_buffer, vertex_buffer, sizeof(vertices));
+  createBuffer(sizeof(vertices), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, note_vertex_buffer, note_vertex_buffer_mem);
+  copyBuffer(staging_buffer, note_vertex_buffer, sizeof(vertices));
 
   vkDestroyBuffer(device, staging_buffer, nullptr);
   vkFreeMemory(device, staging_buffer_mem, nullptr);
 }
 
-void Renderer::createInstanceBuffer()
+void Renderer::createNoteInstanceBuffer()
 {
-  createBuffer(sizeof(InstanceData) * MAX_NOTES, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, instance_buffer, instance_buffer_mem);
+  createBuffer(sizeof(InstanceData) * MAX_NOTES, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, note_instance_buffer, note_instance_buffer_mem);
 }
 
-void Renderer::createIndexBuffer()
+void Renderer::createNoteIndexBuffer()
 {
   uint32_t indices[] = {
     0, 1, 2,
@@ -957,14 +949,14 @@ void Renderer::createIndexBuffer()
   memcpy(data, indices, sizeof(indices));
   vkUnmapMemory(device, staging_buffer_mem);
 
-  createBuffer(sizeof(indices), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, index_buffer, index_buffer_mem);
-  copyBuffer(staging_buffer, index_buffer, sizeof(indices));
+  createBuffer(sizeof(indices), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, note_index_buffer, note_index_buffer_mem);
+  copyBuffer(staging_buffer, note_index_buffer, sizeof(indices));
 
   vkDestroyBuffer(device, staging_buffer, nullptr);
   vkFreeMemory(device, staging_buffer_mem, nullptr);
 }
 
-void Renderer::createUniformBuffers()
+void Renderer::createNoteUniformBuffers()
 {
   VkDeviceSize buffer_size = sizeof(UniformBufferObject);
 
@@ -1049,7 +1041,7 @@ void Renderer::createCommandBuffers()
       //Start the render pass
       VkRenderPassBeginInfo render_pass_info = {};
       render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-      render_pass_info.renderPass = render_pass;
+      render_pass_info.renderPass = note_render_pass;
       render_pass_info.framebuffer = swap_chain_framebuffers[swap_chain]; //Create a framebuffer for each swap chain image
       render_pass_info.renderArea.offset = { 0, 0 };
       render_pass_info.renderArea.extent = swap_chain_extent; //Render area defines where shader loads and stores take place. Anything outside this area are undefined, allowing for better performance
@@ -1066,14 +1058,14 @@ void Renderer::createCommandBuffers()
       //Now the render pass can begin
       vkCmdBeginRenderPass(cmd_buffers[idx], &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 
-      vkCmdBindPipeline(cmd_buffers[idx], VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline);
+      vkCmdBindPipeline(cmd_buffers[idx], VK_PIPELINE_BIND_POINT_GRAPHICS, note_pipeline);
 
-      VkBuffer vertex_buffers[] = { vertex_buffer };
+      VkBuffer vertex_buffers[] = { note_vertex_buffer };
       VkDeviceSize offsets[] = { 0 };
       vkCmdBindVertexBuffers(cmd_buffers[idx], VERTEX_BUFFER_BIND_ID, 1, vertex_buffers, offsets);
-      vkCmdBindVertexBuffers(cmd_buffers[idx], INSTANCE_BUFFER_BIND_ID, 1, &instance_buffer, offsets);
-      vkCmdBindIndexBuffer(cmd_buffers[idx], index_buffer, 0, VK_INDEX_TYPE_UINT32);
-      vkCmdBindDescriptorSets(cmd_buffers[idx], VK_PIPELINE_BIND_POINT_GRAPHICS, pl_layout, 0, 1, &descriptor_sets[swap_chain], 0, nullptr);
+      vkCmdBindVertexBuffers(cmd_buffers[idx], INSTANCE_BUFFER_BIND_ID, 1, &note_instance_buffer, offsets);
+      vkCmdBindIndexBuffer(cmd_buffers[idx], note_index_buffer, 0, VK_INDEX_TYPE_UINT32);
+      vkCmdBindDescriptorSets(cmd_buffers[idx], VK_PIPELINE_BIND_POINT_GRAPHICS, note_pipeline_layout, 0, 1, &descriptor_sets[swap_chain], 0, nullptr);
 
       vkCmdDrawIndexed(cmd_buffers[idx], 6, MAX_NOTES_BASE * (note_buf_idx + 1), 0, 0, 0);
 
@@ -1191,7 +1183,7 @@ void Renderer::drawFrame(float time)
     throw std::runtime_error("UNIMPLEMENTED!!!!");
 
   void* data;
-  vkMapMemory(device, instance_buffer_mem, 0, sizeof(InstanceData) * MAX_NOTES, 0, &data);
+  vkMapMemory(device, note_instance_buffer_mem, 0, sizeof(InstanceData) * MAX_NOTES, 0, &data);
   if (last_notes_shown_count > notes_shown_size)
     memset((char*)data + notes_shown_size * sizeof(InstanceData), 0, sizeof(InstanceData) * (last_notes_shown_count - notes_shown_size));
 
@@ -1246,7 +1238,7 @@ void Renderer::drawFrame(float time)
   }
 
   //memcpy(data, data_v, (size_t)buffer_size);
-  vkUnmapMemory(device, instance_buffer_mem);
+  vkUnmapMemory(device, note_instance_buffer_mem);
 
   //Submit to the command buffer
   VkSubmitInfo submit_info = {};

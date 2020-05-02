@@ -5,10 +5,10 @@
 
 # Chikara
 # Generated files
-vert.h
-vert.spv
-frag.h
-frag.spv
+*_v.h
+*_v.spv
+*_f.h
+*_f.spv
 
 # User-specific files
 *.rsuser
