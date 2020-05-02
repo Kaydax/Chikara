@@ -243,7 +243,7 @@ public:
 
   std::vector<VkSemaphore> next_step_semaphores;
 
-  std::array<std::list<Note*>, 256> notes_shown;
+  std::array<std::list<Note>, 256> notes_shown;
   std::array<size_t, 256> notes_per_key = {};
   size_t last_notes_shown_count;
 
