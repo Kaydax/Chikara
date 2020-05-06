@@ -512,6 +512,8 @@ void MidiTrack::deleteNoteStacks()
     for(int i = 0; i < 256 * 16; i++)
     {
       std::list<Note*>* stack = note_stacks[i];
+      for (auto n : *stack)
+        n->end = time;
       delete note_stacks[i];
     }
     delete[] note_stacks;

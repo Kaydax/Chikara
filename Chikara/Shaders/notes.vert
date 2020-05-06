@@ -120,28 +120,15 @@ void main() {
     // any other cases should be impossible
     switch (gl_VertexIndex) {
     case 0:
-        //vtx_pos.x = float(noteKey) / flotes;
-        //vtx_pos.x = 1.0 / flotes;
-        vtx_pos.y = noteStart - ubo.time;
-        break;
     case 1:
-        //vtx_pos.x = (float(noteKey) / flotes) + (1 / flotes);
-        //vtx_pos.x = 0.0;
         vtx_pos.y = noteStart - ubo.time;
         break;
     case 2:
-        //vtx_pos.x = (float(noteKey) / flotes);
-        //vtx_pos.x = 1.0 / flotes;
-        //vtx_pos.y = noteEnd - ubo.time;
-        //vtx_pos.y = (noteStart - ubo.time) / ubo.pre_time + (noteEnd - noteStart) / ubo.pre_time;
-        vtx_pos.y = noteEnd - ubo.time;
-        break;
     case 3:
-        //vtx_pos.x = float(noteKey) / flotes + (1 / flotes);
-        //vtx_pos.x = 0.0;
-        //vtx_pos.y = noteEnd - ubo.time;
-        //vtx_pos.y = (noteStart - ubo.time) / ubo.pre_time + (noteEnd - noteStart) / ubo.pre_time;
-        vtx_pos.y = noteEnd - ubo.time;
+        if (noteEnd == uintBitsToFloat(0x7F800000))
+            vtx_pos.y = 1.0;
+        else
+            vtx_pos.y = noteEnd - ubo.time;
         break;
     }
     vtx_pos.y /= ubo.pre_time;
