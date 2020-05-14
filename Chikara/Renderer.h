@@ -188,7 +188,7 @@ class Renderer
 {
 public:
   moodycamel::ReaderWriterQueue<NoteEvent>** note_event_buffer;
-  std::vector<std::array<std::stack<Note*>, 256 * 16>> note_stacks;
+  std::vector<std::array<std::stack<Note*>, 256>> note_stacks;
   std::atomic<float>* midi_renderer_time;
   GLFWwindow* window;
   VkInstance inst;

@@ -21,6 +21,7 @@ struct MidiChunk
   size_t length;
 };
 
+// TODO (Khang): save 3 bytes per note by putting the key in the unused alpha part of color
 struct Note
 {
   float start;
