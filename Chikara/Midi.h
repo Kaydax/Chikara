@@ -21,19 +21,12 @@ struct MidiChunk
   size_t length;
 };
 
-struct NoteColor 
-{
-  float r;
-  float g;
-  float b;
-};
-
 struct Note
 {
   float start;
   float end;
-  int key;
-  NoteColor color;
+  uint32_t color;
+  unsigned char key;
 };
 
 struct Tempo
@@ -42,11 +35,20 @@ struct Tempo
   uint32_t tempo;
 };
 
-// After-touch, Control Change, Pitch Wheel, Program Change, Channel after-touch
-struct MiscEvent
+// Note On/Off, After-touch, Control Change, Pitch Wheel, Program Change, Channel after-touch
+struct MidiEvent
 {
   float time;
   uint32_t msg;
+};
+
+// separate from MidiEvent, used to start and end notes on the renderer
+struct NoteEvent
+{
+  float time;
+  uint32_t track; // actually (track * 16) + channel, max of 268435455 tracks so it'll never overflow
+  bool type; // false = off, true = on
+  // key isn't needed
 };
 
 // TODO (Khang): constexpr meta-programming is too hard, using macros for now...
@@ -93,14 +95,13 @@ class MidiTrack
     ~MidiTrack();
     void parseDelta();
     void parseDeltaTime();
-    void parseEvent(moodycamel::ReaderWriterQueue<Note*>** global_notes, moodycamel::ReaderWriterQueue<MiscEvent>* global_misc);
+    void parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_note_events, moodycamel::ReaderWriterQueue<MidiEvent>* global_misc);
 
     bool ended = false;
     bool delta_parsed = false;
     uint64_t tick_time = 0;
     double time = 0;
     uint32_t notes_parsed = 0;
-    std::list<Note*>** note_stacks = NULL;
     std::vector<Tempo> tempo_events;
     Tempo* global_tempo_events = 0;
     double tempo_multiplier = 0;
@@ -108,12 +109,11 @@ class MidiTrack
     uint32_t global_tempo_event_index = 0;
     uint16_t ppq = 0;
     uint32_t track_num = 0;
+    std::array<unsigned char, 256 * 16> unended_note_count = {};
   private:
     uint8_t prev_command = 0;
     BufferedReader* reader = NULL;
 
-    void initNoteStacks();
-    void deleteNoteStacks();
     double multiplierFromTempo(uint32_t tempo, uint16_t ppq);
 };
 
@@ -125,11 +125,12 @@ class Midi
     void SpawnLoaderThread();
     void SpawnPlaybackThread(std::chrono::steady_clock::time_point start_time);
 
-    moodycamel::ReaderWriterQueue<Note*>** note_buffer;
-    moodycamel::ReaderWriterQueue<MiscEvent> misc_events;
+    moodycamel::ReaderWriterQueue<NoteEvent>** note_event_buffer;
+    moodycamel::ReaderWriterQueue<MidiEvent> misc_events;
     Tempo* tempo_array;
     uint32_t tempo_count;
     std::atomic<float> renderer_time;
+    uint32_t track_count;
   private:
     void loadMidi();
     void assertText(const char* text);
@@ -145,7 +146,6 @@ class Midi
     size_t file_end;
     uint16_t format;
     uint16_t ppq;
-    uint32_t track_count;
     std::mutex mtx;
     std::thread loader_thread;
     std::thread playback_thread;

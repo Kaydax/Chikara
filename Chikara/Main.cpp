@@ -23,8 +23,9 @@ void Main::run(int argc, wchar_t** argv)
 
   KDMAPI::Init();
   midi = new Midi(argv[1]);
-  r.note_buffer = midi->note_buffer;
+  r.note_event_buffer = midi->note_event_buffer;
   r.midi_renderer_time = &midi->renderer_time;
+  r.note_stacks.resize(midi->track_count * 16);
   // playback thread spawned in mainLoop to ensure it's synced with render
   midi->SpawnLoaderThread();
   initWindow(); //Setup everything for the window

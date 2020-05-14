@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <fstream>
 #include <array>
+#include <stack>
 #include "Midi.h"
 
 #pragma endregion
@@ -186,7 +187,8 @@ struct UniformBufferObject
 class Renderer
 {
 public:
-  moodycamel::ReaderWriterQueue<Note*>** note_buffer;
+  moodycamel::ReaderWriterQueue<NoteEvent>** note_event_buffer;
+  std::vector<std::array<std::stack<Note*>, 256 * 16>> note_stacks;
   std::atomic<float>* midi_renderer_time;
   GLFWwindow* window;
   VkInstance inst;
@@ -246,7 +248,7 @@ public:
 
   std::vector<VkSemaphore> next_step_semaphores;
 
-  std::array<std::list<Note*>, 256> notes_shown;
+  std::array<std::list<Note>, 256> notes_shown;
   std::array<size_t, 256> notes_per_key = {};
   size_t last_notes_shown_count;
 

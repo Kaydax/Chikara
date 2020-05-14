@@ -8,6 +8,25 @@
 
 Main m;
 
+glm::vec3 colors[16] = {
+  {51 / 255.0f, 102 / 255.0f, 255 / 255.0f},
+  {255 / 255.0f, 126 / 255.0f, 51 / 255.0f},
+  {51 / 255.0f, 255 / 255.0f, 102 / 255.0f},
+  {255 / 255.0f, 51 / 255.0f, 129 / 255.0f},
+  {51 / 255.0f, 255 / 255.0f, 255 / 255.0f},
+  {228 / 255.0f, 51 / 255.0f, 255 / 255.0f},
+  {153 / 255.0f, 255 / 255.0f, 51 / 255.0f},
+  {75 / 255.0f, 51 / 255.0f, 255 / 255.0f},
+  {255 / 255.0f, 204 / 255.0f, 51 / 255.0f},
+  {51 / 255.0f, 180 / 255.0f, 255 / 255.0f},
+  {255 / 255.0f, 51 / 255.0f, 51 / 255.0f},
+  {51 / 255.0f, 255 / 255.0f, 177 / 255.0f},
+  {255 / 255.0f, 51 / 255.0f, 204 / 255.0f},
+  {78 / 255.0f, 255 / 255.0f, 51 / 255.0f},
+  {153 / 255.0f, 51 / 255.0f, 255 / 255.0f},
+  {231 / 255.0f, 255 / 255.0f, 51 / 255.0f}
+};
+
 #pragma region Create the instance
 
 //Create the Vulkan instance
@@ -1147,6 +1166,45 @@ void Renderer::drawFrame(float time)
   updateUniformBuffer(img_index, time);
 
   concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i) {
+    moodycamel::ReaderWriterQueue<NoteEvent>* note_events = note_event_buffer[i];
+    while (true) {
+      NoteEvent* peek = note_events->peek();
+      if (peek == nullptr)
+        break;
+      NoteEvent event = *peek;
+      std::stack<Note*>& note_stack = note_stacks[event.track][i];
+      if (event.time < time + pre_time) {
+        note_events->try_dequeue(event);
+        if (event.type) {
+          // note on
+          Note n;
+          n.color = encode_color(colors[event.track & 0xF]);
+          n.start = event.time;
+          n.end = INFINITY;
+          n.key = i;
+
+          notes_shown[i].push_front(n);
+          notes_per_key[i]++;
+          note_stack.push(&notes_shown[i].front());
+        }
+        else {
+          // note off
+          if (!note_stack.empty()) {
+            // dangling pointer here should be impossible
+            Note* n = note_stack.top();
+            note_stack.pop();
+            n->end = event.time;
+          }
+        }
+      }
+      else {
+        break;
+      }
+    }
+  });
+
+  /*
+  concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i) {
     moodycamel::ReaderWriterQueue<Note*>* notes = note_buffer[i];
     //for(int j = 0; j < 1; j++)
     while (true)
@@ -1171,6 +1229,7 @@ void Renderer::drawFrame(float time)
       }
     }
     });
+   */
 
   size_t notes_shown_size = 0;
   for (auto& vec : notes_shown)
@@ -1210,18 +1269,18 @@ void Renderer::drawFrame(float time)
     auto& list = notes_shown[i];
     for (auto it = list.begin(); it != list.end();)
     {
-      Note* n = *it;
-      if (time >= n->end)
+      Note n = *it;
+      if (time >= n.end)
       {
         //event_queue[i].push_back(MAKELONG(MAKEWORD((n->channel) | (8 << 4), n->key), MAKEWORD(n->velocity, 0)));
         data_i[key_indices[i]++] = { 0, 0, 0, {0,0,0} };
         notes_per_key[i]--;
-        delete n;
+        //delete n;
         it = list.erase(it);
       }
       else
       {
-        data_i[key_indices[i]++] = { static_cast<float>(n->start), static_cast<float>(n->end), n->key, {n->color.r,n->color.g,n->color.b} };
+        data_i[key_indices[i]++] = { static_cast<float>(n.start), static_cast<float>(n.end), n.key, decode_color(n.color) };
         it++;
       }
     }

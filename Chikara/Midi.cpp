@@ -2,25 +2,6 @@
 #include "Midi.h"
 #include "KDMAPI.h"
 
-NoteColor colors[16] = {
-  {51 / 255.0f, 102 / 255.0f, 255 / 255.0f},
-  {255 / 255.0f, 126 / 255.0f, 51 / 255.0f},
-  {51 / 255.0f, 255 / 255.0f, 102 / 255.0f},
-  {255 / 255.0f, 51 / 255.0f, 129 / 255.0f},
-  {51 / 255.0f, 255 / 255.0f, 255 / 255.0f},
-  {228 / 255.0f, 51 / 255.0f, 255 / 255.0f},
-  {153 / 255.0f, 255 / 255.0f, 51 / 255.0f},
-  {75 / 255.0f, 51 / 255.0f, 255 / 255.0f},
-  {255 / 255.0f, 204 / 255.0f, 51 / 255.0f},
-  {51 / 255.0f, 180 / 255.0f, 255 / 255.0f},
-  {255 / 255.0f, 51 / 255.0f, 51 / 255.0f},
-  {51 / 255.0f, 255 / 255.0f, 177 / 255.0f},
-  {255 / 255.0f, 51 / 255.0f, 204 / 255.0f},
-  {78 / 255.0f, 255 / 255.0f, 51 / 255.0f},
-  {153 / 255.0f, 51 / 255.0f, 255 / 255.0f},
-  {231 / 255.0f, 255 / 255.0f, 51 / 255.0f}
-};
-
 #pragma region Midi Class
 
 Midi::Midi(wchar_t* file_name)
@@ -85,15 +66,10 @@ Midi::~Midi()
 {
   for(int i = 0; i < 256; i++)
   {
-    moodycamel::ReaderWriterQueue<Note*>* notes = note_buffer[i];
-    Note* n;
-    while(notes->try_dequeue(n))
-    {
-      delete n;
-    }
+    moodycamel::ReaderWriterQueue<NoteEvent>* notes = note_event_buffer[i];
     delete notes;
   }
-  delete note_buffer;
+  delete note_event_buffer;
 }
 
 void Midi::loadMidi()
@@ -225,10 +201,10 @@ void Midi::loadMidi()
       readers[i]->global_tempo_event_count = tempo_count;
     }
 
-    note_buffer = new moodycamel::ReaderWriterQueue<Note*>* [256];
+    note_event_buffer = new moodycamel::ReaderWriterQueue<NoteEvent>* [256];
     for(int i = 0; i < 256; i++)
     {
-      note_buffer[i] = new moodycamel::ReaderWriterQueue<Note*>();
+      note_event_buffer[i] = new moodycamel::ReaderWriterQueue<NoteEvent>();
     }
 
   } catch(const char* e)
@@ -290,7 +266,7 @@ void Midi::LoaderThread()
   while (true) {
     bool* tracks_ended = new bool[track_count];
     memset(tracks_ended, 0, track_count);
-    while (seconds < renderer_time.load() + 30.0f)
+    while (seconds < renderer_time.load() + 10.0f)
     {
       for (int i = 0; i < track_count; i++)
       {
@@ -304,11 +280,23 @@ void Midi::LoaderThread()
         if (time < track->tick_time)
           continue;
         while (time >= track->tick_time) {
-          track->parseEvent(note_buffer, &misc_events);
+          track->parseEvent(note_event_buffer, &misc_events);
           if (track->time > seconds) seconds = track->time;
           track->parseDeltaTime();
           if (track->ended) {
             tracks_ended[i] = true;
+            for (int channel = 0; channel < 16; channel++) {
+              for (int key = 0; key < 256; key++) {
+                for (int x = 0; x < track->unended_note_count[channel * 16 + key]; x++) {
+                  // end all unended notes
+                  NoteEvent e;
+                  e.time = track->time;
+                  e.track = track->track_num;
+                  e.type = false;
+                  note_event_buffer[key]->enqueue(e);
+                }
+              }
+            }
             break;
           }
         }
@@ -343,7 +331,7 @@ void Midi::PlaybackThread()
     bool stop_requested = false;
     auto current_time = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
-    MiscEvent event;
+    MidiEvent event;
     while (misc_events.try_dequeue(event)) {
       while (time < event.time) {
         current_time = std::chrono::high_resolution_clock::now();
@@ -496,31 +484,6 @@ void MidiTrack::parseDelta()
   }
 }
 
-void MidiTrack::initNoteStacks()
-{
-  note_stacks = new std::list<Note*> * [16 * 256];
-  for(int i = 0; i < 16 * 256; i++)
-  {
-    note_stacks[i] = new std::list<Note*>();
-  }
-}
-
-void MidiTrack::deleteNoteStacks()
-{
-  if(note_stacks != NULL)
-  {
-    for(int i = 0; i < 256 * 16; i++)
-    {
-      std::list<Note*>* stack = note_stacks[i];
-      for (auto n : *stack)
-        n->end = time;
-      delete note_stacks[i];
-    }
-    delete[] note_stacks;
-    note_stacks = NULL;
-  }
-}
-
 void MidiTrack::parseDeltaTime()
 {
   if(ended) return;
@@ -561,9 +524,9 @@ double MidiTrack::multiplierFromTempo(uint32_t tempo, uint16_t ppq)
   return tempo / 1000000.0 / ppq;
 }
 
-void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<Note*>** global_notes, moodycamel::ReaderWriterQueue<MiscEvent>* global_misc)
+void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_note_events, moodycamel::ReaderWriterQueue<MidiEvent>* global_misc)
 {
-  bool stage_2 = global_notes != nullptr;
+  bool stage_2 = global_note_events != nullptr;
   if(ended)
   {
     return;
@@ -590,21 +553,20 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<Note*>** global_notes, 
         {
           uint8_t key = reader->readByte();
           uint8_t vel = reader->readByte();
-          if (note_stacks == NULL) return;
 
-          std::list<Note*>* stack = note_stacks[channel * 256 + key];
+          MidiEvent midi_event;
+          midi_event.time = static_cast<float>(time);
+          midi_event.msg = MAKELONG(MAKEWORD((channel) | (8 << 4), key), MAKEWORD(vel, 0));
+          global_misc->enqueue(midi_event);
 
-          if (!stack->empty())
-          {
-            Note* n = stack->front();
-            stack->pop_front();
-            n->end = static_cast<float>(time);
+          NoteEvent note_event;
+          note_event.time = static_cast<float>(time);
+          note_event.track = track_num * channel;
+          note_event.type = false;
+          global_note_events[key]->enqueue(note_event);
 
-            MiscEvent event;
-            event.time = static_cast<float>(time);
-            event.msg = MAKELONG(MAKEWORD((channel) | (8 << 4), n->key), MAKEWORD(vel, 0));
-            global_misc->enqueue(event);
-          }
+          if (unended_note_count[channel * 256 + key] != 0)
+            unended_note_count[channel * 256 + key]--;
           break;
         }
         else
@@ -619,40 +581,36 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<Note*>** global_notes, 
           uint8_t key = reader->readByte();
           uint8_t vel = reader->readByte();
 
-          if (note_stacks == NULL) initNoteStacks();
-          std::list<Note*>* stack = note_stacks[channel * 256 + key];
-
           if (vel > 0)
           {
-            Note* n = new Note();
-            n->color = colors[channel];
-            n->start = time;
-            n->end = INFINITY;
-            n->key = key;
-
-            stack->push_back(n);
-            global_notes[key]->enqueue(n);
-
-            MiscEvent event;
+            MidiEvent event;
             event.time = static_cast<float>(time);
-            event.msg = MAKELONG(MAKEWORD((channel) | (9 << 4), n->key), MAKEWORD(vel, 0));
+            event.msg = MAKELONG(MAKEWORD((channel) | (9 << 4), key), MAKEWORD(vel, 0));
             global_misc->enqueue(event);
 
-            notes_parsed++;
+            NoteEvent note_event;
+            note_event.time = static_cast<float>(time);
+            note_event.track = track_num * channel;
+            note_event.type = true;
+            global_note_events[key]->enqueue(note_event);
+
+            unended_note_count[channel * 256 + key]++;
           }
           else
           {
-            if (!stack->empty())
-            {
-              Note* n = stack->front();
-              stack->pop_front();
-              n->end = time;
+            MidiEvent event;
+            event.time = static_cast<float>(time);
+            event.msg = MAKELONG(MAKEWORD((channel) | (8 << 4), key), MAKEWORD(vel, 0));
+            global_misc->enqueue(event);
 
-              MiscEvent event;
-              event.time = static_cast<float>(time);
-              event.msg = MAKELONG(MAKEWORD((channel) | (8 << 4), n->key), MAKEWORD(vel, 0));
-              global_misc->enqueue(event);
-            }
+            NoteEvent note_event;
+            note_event.time = static_cast<float>(time);
+            note_event.track = track_num * channel;
+            note_event.type = false;
+            global_note_events[key]->enqueue(note_event);
+
+            if (unended_note_count[channel * 256 + key] != 0)
+              unended_note_count[channel * 256 + key]--;
           }
           break;
         }
@@ -667,7 +625,7 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<Note*>** global_notes, 
       case 0xE0: // Pitch Wheel
         if (stage_2)
         {
-          MiscEvent event;
+          MidiEvent event;
           event.time = static_cast<float>(time);
           event.msg = ((command & 0xFF) | ((reader->readByte() & 0xFF) << 8)) & 0xFFFF | ((reader->readByte() & 0xFF) << 16);
           global_misc->enqueue(event);
@@ -681,7 +639,7 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<Note*>** global_notes, 
       case 0xD0: // Channel Pressure
         if (stage_2)
         {
-          MiscEvent event;
+          MidiEvent event;
           event.time = static_cast<float>(time);
           event.msg = ((cmd & 0xFF) | ((reader->readByte() & 0xFF) << 8));
           global_misc->enqueue(event);
@@ -788,10 +746,6 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<Note*>** global_notes, 
   {
     std::cout << e;
     ended = true;
-  }
-  if (ended && stage_2)
-  {
-    deleteNoteStacks();
   }
 }
 
