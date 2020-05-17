@@ -114,6 +114,9 @@ void main() {
         vNoteSize = vec2(0.0, 0.0);
         return;
     }
+    float fakeNoteEnd = noteEnd;
+    if (noteEnd == uintBitsToFloat(0x7F800000))
+      fakeNoteEnd = ubo.time + 1000;
     vec2 vtx_pos;
     float flotes = float(N_NOTES); //float notes
     bool black = isBlackKey(noteKey);
@@ -125,10 +128,7 @@ void main() {
         break;
     case 2:
     case 3:
-        if (noteEnd == uintBitsToFloat(0x7F800000))
-            vtx_pos.y = 1.0;
-        else
-            vtx_pos.y = noteEnd - ubo.time;
+        vtx_pos.y = fakeNoteEnd - ubo.time;
         break;
     }
     vtx_pos.y /= ubo.pre_time;
@@ -138,5 +138,5 @@ void main() {
     gl_Position = ubo.proj * ubo.view * ubo.model * vec4(vtx_pos, 0.0, 1.0);
     fragColor = noteColor;
     fragTexCoord = inTexCoord;
-    vNoteSize = vec2((black ? blackWidth : 1.0) / float(nWhiteKeys), noteEnd - noteStart);
+    vNoteSize = vec2((black ? blackWidth : 1.0) / float(nWhiteKeys), fakeNoteEnd - noteStart);
 }
