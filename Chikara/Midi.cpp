@@ -263,6 +263,7 @@ void Midi::LoaderThread()
 {
   double seconds = 0;
   uint64_t time = 0;
+  bool all_ended = false;
   while (true) {
     bool* tracks_ended = new bool[track_count];
     memset(tracks_ended, 0, track_count);
@@ -273,6 +274,15 @@ void Midi::LoaderThread()
         MidiTrack* track = readers[i];
         if (track->ended) {
           tracks_ended[i] = true;
+          if (!track->notes_ended) {
+            track->notes_ended = true;
+            NoteEvent e;
+            e.time = seconds;
+            e.track = i;
+            e.type = NoteEventType::TrackEnded;
+            for (int y = 0; y < 256; y++)
+              note_event_buffer[y]->enqueue(e);
+          }
           continue;
         }
         if (!track->delta_parsed)
@@ -285,30 +295,20 @@ void Midi::LoaderThread()
           track->parseDeltaTime();
           if (track->ended) {
             tracks_ended[i] = true;
-            for (int channel = 0; channel < 16; channel++) {
-              for (int key = 0; key < 256; key++) {
-                for (int x = 0; x < track->unended_note_count[channel * 16 + key]; x++) {
-                  // end all unended notes
-                  NoteEvent e;
-                  e.time = track->time;
-                  e.track = track->track_num;
-                  e.type = false;
-                  note_event_buffer[key]->enqueue(e);
-                }
-              }
-            }
             break;
           }
         }
       }
       time++;
-    }
-    bool all_ended = true;
-    for (int i = 0; i < track_count; i++) {
-      if (tracks_ended[i] == false) {
-        all_ended = false;
-        break;
+      all_ended = true;
+      for (int i = 0; i < track_count; i++) {
+        if (tracks_ended[i] == false) {
+          all_ended = false;
+          break;
+        }
       }
+      if (all_ended)
+        break;
     }
     delete[] tracks_ended;
     if (all_ended)
@@ -561,12 +561,9 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_not
 
           NoteEvent note_event;
           note_event.time = static_cast<float>(time);
-          note_event.track = track_num * channel;
-          note_event.type = false;
+          note_event.track = track_num * 16 + channel;
+          note_event.type = NoteEventType::NoteOff;
           global_note_events[key]->enqueue(note_event);
-
-          if (unended_note_count[channel * 256 + key] != 0)
-            unended_note_count[channel * 256 + key]--;
           break;
         }
         else
@@ -590,11 +587,9 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_not
 
             NoteEvent note_event;
             note_event.time = static_cast<float>(time);
-            note_event.track = track_num * channel;
-            note_event.type = true;
+            note_event.track = track_num * 16 + channel;
+            note_event.type = NoteEventType::NoteOn;
             global_note_events[key]->enqueue(note_event);
-
-            unended_note_count[channel * 256 + key]++;
           }
           else
           {
@@ -605,12 +600,9 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_not
 
             NoteEvent note_event;
             note_event.time = static_cast<float>(time);
-            note_event.track = track_num * channel;
-            note_event.type = false;
+            note_event.track = track_num * 16 + channel;
+            note_event.type = NoteEventType::NoteOff;
             global_note_events[key]->enqueue(note_event);
-
-            if (unended_note_count[channel * 256 + key] != 0)
-              unended_note_count[channel * 256 + key]--;
           }
           break;
         }

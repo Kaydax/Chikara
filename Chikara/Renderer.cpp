@@ -1234,10 +1234,10 @@ void Renderer::drawFrame(float time)
       std::stack<Note*>& note_stack = note_stacks[event.track][i];
       if (event.time < time + pre_time) {
         note_events->try_dequeue(event);
-        if (event.type) {
-          // note on
+        switch (event.type) {
+        case NoteEventType::NoteOn: {
           Note n;
-          n.color = encode_color(colors[event.track & 0xF]);
+          n.track = event.track;
           n.start = event.time;
           n.end = INFINITY;
           n.key = i;
@@ -1245,15 +1245,24 @@ void Renderer::drawFrame(float time)
           notes_shown[i].push_front(n);
           notes_per_key[i]++;
           note_stack.push(&notes_shown[i].front());
+          break;
         }
-        else {
-          // note off
+        case NoteEventType::NoteOff: {
           if (!note_stack.empty()) {
             // dangling pointer here should be impossible
             Note* n = note_stack.top();
             note_stack.pop();
             n->end = event.time;
           }
+          break;
+        }
+        case NoteEventType::TrackEnded: {
+          for (auto& n : notes_shown[i]) {
+            if ((n.track & ~0xF) >> 4 == event.track)
+              n.end = event.time;
+          }
+          break;
+        }
         }
       }
       else {
@@ -1339,7 +1348,7 @@ void Renderer::drawFrame(float time)
       }
       else
       {
-        data_i[key_indices[i]++] = { static_cast<float>(n.start), static_cast<float>(n.end), n.key, decode_color(n.color) };
+        data_i[key_indices[i]++] = { static_cast<float>(n.start), static_cast<float>(n.end), n.key, colors[n.track & 0xF] };
         it++;
       }
     }

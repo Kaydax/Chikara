@@ -26,7 +26,7 @@ struct Note
 {
   float start;
   float end;
-  uint32_t color;
+  uint32_t track; // actually (track * 16) + channel
   unsigned char key;
 };
 
@@ -43,12 +43,19 @@ struct MidiEvent
   uint32_t msg;
 };
 
+enum class NoteEventType : char {
+  NoteOff,
+  NoteOn,
+  TrackEnded, // important note: does not follow the same (track * 16) + channel format as the others
+};
+
 // separate from MidiEvent, used to start and end notes on the renderer
+// also used to tell the renderer that a track has ended
 struct NoteEvent
 {
   float time;
   uint32_t track; // actually (track * 16) + channel, max of 268435455 tracks so it'll never overflow
-  bool type; // false = off, true = on
+  NoteEventType type;
   // key isn't needed
 };
 
@@ -100,6 +107,7 @@ class MidiTrack
 
     bool ended = false;
     bool delta_parsed = false;
+    bool notes_ended = false;
     uint64_t tick_time = 0;
     double time = 0;
     uint32_t notes_parsed = 0;
@@ -110,7 +118,6 @@ class MidiTrack
     uint32_t global_tempo_event_index = 0;
     uint16_t ppq = 0;
     uint32_t track_num = 0;
-    std::array<unsigned char, 256 * 16> unended_note_count = {};
   private:
     uint8_t prev_command = 0;
     BufferedReader* reader = NULL;
