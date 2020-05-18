@@ -14,6 +14,18 @@
 Renderer r;
 Midi* midi;
 
+Vertex instanced_quad[] {
+  { {0,1}, {0,1} },
+  { {1,1}, {1,1} },
+  { {1,0}, {1,0} },
+  { {0,0}, {0,0} },
+};
+
+uint32_t instanced_quad_indis[] = {
+    0, 1, 2,
+    2, 3, 0,
+};
+
 void Main::run(int argc, wchar_t** argv)
 {
   if (argc < 2) {
@@ -53,7 +65,7 @@ void Main::initVulkan()
   r.createLogicalDevice(); //Create the logical device to use
   r.createSwapChain();
   r.createImageViews();
-  r.createNoteRenderPass();
+  r.createRenderPass(&r.note_render_pass);
   r.createDescriptorSetLayout();
   r.createGraphicsPipeline(notes_v, notes_v_length, notes_f, notes_f_length, r.note_render_pass, &r.note_pipeline_layout, &r.note_pipeline);
   r.createCommandPool();
@@ -62,10 +74,10 @@ void Main::initVulkan()
   //r.createTextureImage();
   //r.createTextureImageView();
   //r.createTextureSampler();
-  r.createNoteVertexBuffer();
-  r.createNoteInstanceBuffer();
-  r.createNoteIndexBuffer();
-  r.createNoteUniformBuffers();
+  r.createVertexBuffer(instanced_quad, 4, r.note_vertex_buffer, r.note_vertex_buffer_mem);
+  r.createInstanceBuffer(sizeof(InstanceData) * MAX_NOTES, r.note_instance_buffer, r.note_instance_buffer_mem);
+  r.createIndexBuffer(instanced_quad_indis, 6, r.note_index_buffer, r.note_index_buffer_mem);
+  r.createUniformBuffers(r.uniform_buffers, r.uniform_buffers_mem);
   r.createDescriptorPool();
   r.createDescriptorSets();
   r.createCommandBuffers();
@@ -99,6 +111,8 @@ void Main::mainLoop()
       fps = frame_counter;
       frame_counter = 0;
       std::cout << std::endl << fps << " fps";
+      std::string title = std::string("Chikara | FPS: ") + std::to_string(fps);
+      glfwSetWindowTitle(r.window, title.c_str());
     }
   }
 
@@ -156,11 +170,11 @@ void Main::recreateSwapChain()
 
   r.createSwapChain();
   r.createImageViews();
-  r.createNoteRenderPass();
+  r.createRenderPass(&r.note_render_pass);
   r.createGraphicsPipeline(notes_v, notes_v_length, notes_f, notes_f_length, r.note_render_pass, &r.note_pipeline_layout, &r.note_pipeline);
   r.createDepthResources();
   r.createFramebuffers();
-  r.createNoteUniformBuffers();
+  r.createUniformBuffers(r.uniform_buffers, r.uniform_buffers_mem);
   r.createDescriptorPool();
   r.createDescriptorSets();
   r.createCommandBuffers();

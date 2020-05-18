@@ -273,13 +273,17 @@ public:
   void createTextureImage();
   void createTextureImageView();
   void createTextureSampler();
+  void createRenderPass(VkRenderPass* pass);
+  void createVertexBuffer(Vertex vertices[], size_t count, VkBuffer& buffer, VkDeviceMemory& buffer_mem);
+  void createInstanceBuffer(VkDeviceSize size, VkBuffer& buffer, VkDeviceMemory& buffer_mem);
+  void createIndexBuffer(uint32_t indices[], size_t count, VkBuffer& buffer, VkDeviceMemory& buffer_mem);
+  void createUniformBuffers(std::vector<VkBuffer>& buffer, std::vector<VkDeviceMemory>& buffer_mem);
 
   // render pass #1: note waterfall
-  void createNoteRenderPass();
-  void createNoteVertexBuffer();
-  void createNoteInstanceBuffer();
-  void createNoteIndexBuffer();
-  void createNoteUniformBuffers();
+  //void createNoteVertexBuffer();
+  //void createNoteInstanceBuffer();
+  //void createNoteIndexBuffer();
+  //void createNoteUniformBuffers();
 
   // render pass #2: keyboard
   // ...

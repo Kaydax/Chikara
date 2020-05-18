@@ -331,7 +331,7 @@ void Renderer::createImageViews()
 
 #pragma region Render Pass
 
-void Renderer::createNoteRenderPass()
+void Renderer::createRenderPass(VkRenderPass* pass)
 {
   //Setup the color attachment
   VkAttachmentDescription color_attachment = {};
@@ -388,9 +388,9 @@ void Renderer::createNoteRenderPass()
   render_pass_info.dependencyCount = 1;
   render_pass_info.pDependencies = &dependency;
 
-  if (vkCreateRenderPass(device, &render_pass_info, nullptr, &note_render_pass) != VK_SUCCESS)
+  if (vkCreateRenderPass(device, &render_pass_info, nullptr, pass) != VK_SUCCESS)
   {
-    throw std::runtime_error("VKERR: Failed to create note render pass!");
+    throw std::runtime_error("VKERR: Failed to create render pass!");
   }
 }
 
@@ -919,6 +919,64 @@ void Renderer::transitionImageLayout(VkImage img, VkFormat format, VkImageLayout
 
 #pragma region Buffers
 
+void Renderer::createVertexBuffer(Vertex vertices[], size_t count, VkBuffer& buffer, VkDeviceMemory& buffer_mem)
+{
+  VkBuffer staging_buffer;
+  VkDeviceMemory staging_buffer_mem;
+
+  createBuffer(count * sizeof(Vertex), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging_buffer, staging_buffer_mem);
+
+  void* data;
+  vkMapMemory(device, staging_buffer_mem, 0, count * sizeof(Vertex), 0, &data);
+  memcpy(data, vertices, count * sizeof(Vertex));
+  vkUnmapMemory(device, staging_buffer_mem);
+
+  createBuffer(count * sizeof(Vertex), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, buffer, buffer_mem);
+  copyBuffer(staging_buffer, buffer, count * sizeof(Vertex));
+
+  vkDestroyBuffer(device, staging_buffer, nullptr);
+  vkFreeMemory(device, staging_buffer_mem, nullptr);
+}
+
+void Renderer::createInstanceBuffer(VkDeviceSize size, VkBuffer& buffer, VkDeviceMemory& buffer_mem)
+{
+  //createBuffer(sizeof(InstanceData) * MAX_NOTES, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, note_instance_buffer, note_instance_buffer_mem);
+  createBuffer(size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, buffer, buffer_mem);
+}
+
+void Renderer::createIndexBuffer(uint32_t indices[], size_t count, VkBuffer& buffer, VkDeviceMemory& buffer_mem)
+{
+  VkBuffer staging_buffer;
+  VkDeviceMemory staging_buffer_mem;
+
+  createBuffer(count * sizeof(uint32_t), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging_buffer, staging_buffer_mem);
+
+  void* data;
+  vkMapMemory(device, staging_buffer_mem, 0, count * sizeof(uint32_t), 0, &data);
+  memcpy(data, indices, count * sizeof(uint32_t));
+  vkUnmapMemory(device, staging_buffer_mem);
+
+  createBuffer(count * sizeof(uint32_t), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, buffer, buffer_mem);
+  copyBuffer(staging_buffer, buffer, count * sizeof(uint32_t));
+
+  vkDestroyBuffer(device, staging_buffer, nullptr);
+  vkFreeMemory(device, staging_buffer_mem, nullptr);
+}
+
+void Renderer::createUniformBuffers(std::vector<VkBuffer>& buffer, std::vector<VkDeviceMemory>& buffer_mem)
+{
+  VkDeviceSize buffer_size = sizeof(UniformBufferObject);
+
+  buffer.resize(swap_chain_imgs.size());
+  buffer_mem.resize(swap_chain_imgs.size());
+
+  for(size_t i = 0; i < swap_chain_imgs.size(); i++)
+  {
+    createBuffer(buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, buffer[i], buffer_mem[i]);
+  }
+}
+
+/*
 void Renderer::createNoteVertexBuffer()
 {
   // this data will be replaced with instancing
@@ -987,6 +1045,7 @@ void Renderer::createNoteUniformBuffers()
     createBuffer(buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniform_buffers[i], uniform_buffers_mem[i]);
   }
 }
+*/
 
 void Renderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& buffer_mem)
 {
