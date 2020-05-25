@@ -1258,7 +1258,7 @@ void Renderer::drawFrame(float time)
         }
         case NoteEventType::TrackEnded: {
           for (auto& n : notes_shown[i]) {
-            if ((n.track & ~0xF) >> 4 == event.track)
+            if ((n.track & ~0xF) >> 4 == event.track && n.end == INFINITY)
               n.end = event.time;
           }
           break;
