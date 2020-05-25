@@ -65,12 +65,16 @@ void Main::initVulkan()
   r.createLogicalDevice(); //Create the logical device to use
   r.createSwapChain();
   r.createImageViews();
-  r.createRenderPass(&r.note_render_pass);
+  r.createRenderPass(&r.note_render_pass, true, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
   r.createDescriptorSetLayout();
   r.createGraphicsPipeline(notes_v, notes_v_length, notes_f, notes_f_length, r.note_render_pass, &r.note_pipeline_layout, &r.note_pipeline);
-  r.createCommandPool();
+  r.createRenderPass(&r.imgui_render_pass, false, VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+  r.createPipelineCache();
+  r.createCommandPool(&r.cmd_pool, 0);
+  r.createCommandPool(&r.imgui_cmd_pool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
   r.createDepthResources();
   r.createFramebuffers();
+  r.createImGuiFramebuffers();
   //r.createTextureImage();
   //r.createTextureImageView();
   //r.createTextureSampler();
@@ -79,9 +83,12 @@ void Main::initVulkan()
   r.createIndexBuffer(instanced_quad_indis, 6, r.note_index_buffer, r.note_index_buffer_mem);
   r.createUniformBuffers(r.uniform_buffers, r.uniform_buffers_mem);
   r.createDescriptorPool();
+  r.createImGuiDescriptorPool();
   r.createDescriptorSets();
   r.createCommandBuffers();
+  r.createImGuiCommandBuffers();
   r.createSyncObjects();
+  r.initImGui();
 }
 
 auto timer = std::chrono::steady_clock();
@@ -128,15 +135,17 @@ void Main::cleanupSwapChain()
   vkFreeMemory(r.device, r.depth_img_mem, nullptr);
 
   for(size_t i = 0; i < r.swap_chain_framebuffers.size(); i++)
-  {
     vkDestroyFramebuffer(r.device, r.swap_chain_framebuffers[i], nullptr);
-  }
+  for (size_t i = 0; i < r.imgui_swap_chain_framebuffers.size(); i++)
+    vkDestroyFramebuffer(r.device, r.imgui_swap_chain_framebuffers[i], nullptr);
 
   vkFreeCommandBuffers(r.device, r.cmd_pool, static_cast<uint32_t>(r.cmd_buffers.size()), r.cmd_buffers.data());
+  vkFreeCommandBuffers(r.device, r.imgui_cmd_pool, static_cast<uint32_t>(r.imgui_cmd_buffers.size()), r.imgui_cmd_buffers.data());
 
   vkDestroyPipeline(r.device, r.note_pipeline, nullptr);
   vkDestroyPipelineLayout(r.device, r.note_pipeline_layout, nullptr);
   vkDestroyRenderPass(r.device, r.note_render_pass, nullptr);
+  vkDestroyRenderPass(r.device, r.imgui_render_pass, nullptr);
 
   for(size_t i = 0; i < r.swap_chain_img_views.size(); i++)
   {
@@ -152,6 +161,7 @@ void Main::cleanupSwapChain()
   }
 
   vkDestroyDescriptorPool(r.device, r.descriptor_pool, nullptr);
+  vkDestroyDescriptorPool(r.device, r.imgui_descriptor_pool, nullptr);
 }
 
 void Main::recreateSwapChain()
@@ -166,18 +176,25 @@ void Main::recreateSwapChain()
 
   vkDeviceWaitIdle(r.device);
 
+  r.destroyImGui();
+
   cleanupSwapChain();
 
   r.createSwapChain();
   r.createImageViews();
-  r.createRenderPass(&r.note_render_pass);
+  r.createRenderPass(&r.note_render_pass, true, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
   r.createGraphicsPipeline(notes_v, notes_v_length, notes_f, notes_f_length, r.note_render_pass, &r.note_pipeline_layout, &r.note_pipeline);
+  r.createRenderPass(&r.imgui_render_pass, false, VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
   r.createDepthResources();
   r.createFramebuffers();
+  r.createImGuiFramebuffers();
   r.createUniformBuffers(r.uniform_buffers, r.uniform_buffers_mem);
   r.createDescriptorPool();
+  r.createImGuiDescriptorPool();
   r.createDescriptorSets();
   r.createCommandBuffers();
+  r.createImGuiCommandBuffers();
+  r.initImGui();
 }
 
 #pragma endregion
@@ -190,6 +207,8 @@ void Main::cleanup()
   {
     r.DestroyDebugUtilsMessengerEXT(r.inst, r.debug_msg, nullptr);
   }
+
+  r.destroyImGui();
 
   cleanupSwapChain();
 
@@ -217,6 +236,8 @@ void Main::cleanup()
   }
 
   vkDestroyCommandPool(r.device, r.cmd_pool, nullptr);
+  vkDestroyCommandPool(r.device, r.imgui_cmd_pool, nullptr);
+  vkDestroyPipelineCache(r.device, r.pipeline_cache, nullptr);
   vkDestroyDevice(r.device, nullptr);
   vkDestroySurfaceKHR(r.inst, r.surface, nullptr);
   vkDestroyInstance(r.inst, nullptr);

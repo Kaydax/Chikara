@@ -55,6 +55,18 @@ const bool enable_validation_layers = true;
 
 #pragma region Structs
 
+typedef enum {
+  Float,
+  Double,
+} ImGuiStatType;
+
+struct ImGuiStat
+{
+  ImGuiStatType type;
+  const char* name;
+  void* value;
+};
+
 struct QueueFamilyIndices
 {
   std::optional<uint32_t> graphics_fam;
@@ -206,7 +218,9 @@ public:
   VkFormat swap_chain_img_format;
   VkExtent2D swap_chain_extent;
   std::vector<VkImageView> swap_chain_img_views;
-  std::vector<VkFramebuffer> swap_chain_framebuffers;
+
+  VkPipelineCache pipeline_cache;
+  uint32_t image_count;
 
   // render pass #1: note waterfall
   VkRenderPass note_render_pass;
@@ -219,9 +233,14 @@ public:
   VkDeviceMemory note_instance_buffer_mem;
   VkBuffer note_index_buffer;
   VkDeviceMemory note_index_buffer_mem;
+  std::vector<VkFramebuffer> swap_chain_framebuffers;
 
-  // render pass #2: keyboard
-  // ...
+  // render pass #2: imgui
+  VkRenderPass imgui_render_pass;
+  VkDescriptorPool imgui_descriptor_pool;
+  VkCommandPool imgui_cmd_pool;
+  std::vector<VkCommandBuffer> imgui_cmd_buffers;
+  std::vector<VkFramebuffer> imgui_swap_chain_framebuffers;
 
   VkCommandPool cmd_pool;
   VkDescriptorPool descriptor_pool;
@@ -255,6 +274,7 @@ public:
   bool framebuffer_resized = false;
 
   float pre_time;
+  double max_elapsed_time = 0;
 
   uint32_t current_frame_index;
 
@@ -267,32 +287,35 @@ public:
   void createImageViews();
   void createDescriptorSetLayout();
   void createGraphicsPipeline(const char* vert_spv, size_t vert_spv_length, const char* frag_spv, size_t frag_spv_length, VkRenderPass render_pass, VkPipelineLayout* layout, VkPipeline* pipeline);
-  void createFramebuffers();
-  void createCommandPool();
+  void createPipelineCache();
+  void createCommandPool(VkCommandPool* pool, VkCommandPoolCreateFlags flags);
   void createDepthResources();
   void createTextureImage();
   void createTextureImageView();
   void createTextureSampler();
-  void createRenderPass(VkRenderPass* pass);
+  void createRenderPass(VkRenderPass* pass, bool has_depth, VkAttachmentLoadOp load_op, VkImageLayout initial_layout, VkImageLayout final_layout);
   void createVertexBuffer(Vertex vertices[], size_t count, VkBuffer& buffer, VkDeviceMemory& buffer_mem);
   void createInstanceBuffer(VkDeviceSize size, VkBuffer& buffer, VkDeviceMemory& buffer_mem);
   void createIndexBuffer(uint32_t indices[], size_t count, VkBuffer& buffer, VkDeviceMemory& buffer_mem);
   void createUniformBuffers(std::vector<VkBuffer>& buffer, std::vector<VkDeviceMemory>& buffer_mem);
 
   // render pass #1: note waterfall
-  //void createNoteVertexBuffer();
-  //void createNoteInstanceBuffer();
-  //void createNoteIndexBuffer();
-  //void createNoteUniformBuffers();
+  void createDescriptorPool();
+  void createCommandBuffers();
+  void createFramebuffers();
 
   // render pass #2: keyboard
-  // ...
+  void createImGuiDescriptorPool();
+  void createImGuiCommandBuffers();
+  void createImGuiFramebuffers();
 
-  void createDescriptorPool();
   void createDescriptorSets();
-  void createCommandBuffers();
   void createSyncObjects();
+  static void CheckVkResult(VkResult err);
+  void initImGui();
+  void destroyImGui();
   void drawFrame(float time);
+  void ImGuiFrame();
 
   static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
   void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& buffer_mem);
@@ -329,6 +352,7 @@ private:
   SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
 
   QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
+  QueueFamilyIndices queue_families;
 
   static std::vector<char> readFile(const std::string& filename);
 

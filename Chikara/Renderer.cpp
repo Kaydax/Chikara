@@ -1,6 +1,10 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_vulkan.h>
+
 #include "Renderer.h"
 #include "Main.h"
 #include "Midi.h"
@@ -205,7 +209,7 @@ void Renderer::createSwapChain()
   VkPresentModeKHR present_mode = chooseSwapPresentMode(swap_chain_support.present_modes);
   VkExtent2D extent = chooseSwapExtent(swap_chain_support.capabilities);
 
-  uint32_t image_count = swap_chain_support.capabilities.minImageCount + 1;
+  image_count = swap_chain_support.capabilities.minImageCount + 1;
   if(swap_chain_support.capabilities.maxImageCount > 0 && image_count > swap_chain_support.capabilities.maxImageCount)
   {
     image_count = swap_chain_support.capabilities.maxImageCount;
@@ -331,43 +335,48 @@ void Renderer::createImageViews()
 
 #pragma region Render Pass
 
-void Renderer::createRenderPass(VkRenderPass* pass)
+void Renderer::createRenderPass(VkRenderPass* pass, bool has_depth, VkAttachmentLoadOp load_op, VkImageLayout initial_layout, VkImageLayout final_layout)
 {
   //Setup the color attachment
   VkAttachmentDescription color_attachment = {};
   color_attachment.format = swap_chain_img_format;
   color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-  color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  color_attachment.loadOp = load_op;
   color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
   color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
   color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+  color_attachment.initialLayout = initial_layout;
+  color_attachment.finalLayout = final_layout;
 
   VkAttachmentDescription depth_attachment = {};
-  depth_attachment.format = findDepthFormat();
-  depth_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-  depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-  depth_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  depth_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  depth_attachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+  if (has_depth) {
+    depth_attachment.format = findDepthFormat();
+    depth_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depth_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depth_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depth_attachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+  }
 
   VkAttachmentReference color_attachment_ref = {};
   color_attachment_ref.attachment = 0;
   color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
   VkAttachmentReference depth_attachment_ref = {};
-  depth_attachment_ref.attachment = 1;
-  depth_attachment_ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+  if (has_depth) {
+    depth_attachment_ref.attachment = 1;
+    depth_attachment_ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+  }
 
   //Subpasses
   VkSubpassDescription subpass = {};
   subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
   subpass.colorAttachmentCount = 1;
   subpass.pColorAttachments = &color_attachment_ref;
-  subpass.pDepthStencilAttachment = &depth_attachment_ref;
+  if (has_depth)
+    subpass.pDepthStencilAttachment = &depth_attachment_ref;
 
   VkSubpassDependency dependency = {};
   dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -381,12 +390,17 @@ void Renderer::createRenderPass(VkRenderPass* pass)
   std::array<VkAttachmentDescription, 2> attachments = { color_attachment, depth_attachment };
   VkRenderPassCreateInfo render_pass_info = {};
   render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-  render_pass_info.attachmentCount = static_cast<uint32_t>(attachments.size());
-  render_pass_info.pAttachments = attachments.data();
   render_pass_info.subpassCount = 1;
   render_pass_info.pSubpasses = &subpass;
   render_pass_info.dependencyCount = 1;
   render_pass_info.pDependencies = &dependency;
+  if (has_depth) {
+    render_pass_info.attachmentCount = static_cast<uint32_t>(attachments.size());
+    render_pass_info.pAttachments = attachments.data();
+  } else {
+    render_pass_info.attachmentCount = 1;
+    render_pass_info.pAttachments = &color_attachment;
+  }
 
   if (vkCreateRenderPass(device, &render_pass_info, nullptr, pass) != VK_SUCCESS)
   {
@@ -445,6 +459,34 @@ void Renderer::createDescriptorPool()
   {
     throw std::runtime_error("VKERR: Failed to create descriptor pool!");
   }
+}
+
+void Renderer::createImGuiDescriptorPool()
+{
+  VkDescriptorPoolSize pool_sizes[] =
+  {
+      { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+      { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+      { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+      { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+      { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+      { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+      { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+      { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+      { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+      { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+      { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
+  };
+
+  VkDescriptorPoolCreateInfo pool_info = {};
+  pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+  pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+  pool_info.maxSets = 1000 * IM_ARRAYSIZE(pool_sizes);
+  pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
+  pool_info.pPoolSizes = pool_sizes;
+
+  if (vkCreateDescriptorPool(device, &pool_info, nullptr, &imgui_descriptor_pool) != VK_SUCCESS)
+    throw std::runtime_error("VKERR: Failed to create ImGui descriptor pool!");
 }
 
 void Renderer::createDescriptorSets()
@@ -688,6 +730,22 @@ VkShaderModule Renderer::createShaderModule(const char* code, size_t length)
 
 #pragma endregion
 
+#pragma region Pipeline Cache
+
+void Renderer::createPipelineCache()
+{
+  VkPipelineCacheCreateInfo info = {};
+  info.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+  // everything else is 0, this doesn't actually cache anything
+
+  if (vkCreatePipelineCache(device, &info, nullptr, &pipeline_cache) != VK_SUCCESS)
+  {
+    throw std::runtime_error("VKERR: Failed to create pipeline cache!");
+  }
+}
+
+#pragma endregion
+
 #pragma region Depth Buffer
 
 void Renderer::createDepthResources()
@@ -729,20 +787,40 @@ void Renderer::createFramebuffers()
   }
 }
 
+void Renderer::createImGuiFramebuffers()
+{
+  imgui_swap_chain_framebuffers.resize(swap_chain_img_views.size());
+
+  for (size_t i = 0; i < swap_chain_img_views.size(); i++)
+  {
+    VkFramebufferCreateInfo framebuffer_info = {};
+    framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    framebuffer_info.renderPass = imgui_render_pass;
+    framebuffer_info.attachmentCount = 1;
+    framebuffer_info.pAttachments = &swap_chain_img_views[i];
+    framebuffer_info.width = swap_chain_extent.width;
+    framebuffer_info.height = swap_chain_extent.height;
+    framebuffer_info.layers = 1;
+
+    if (vkCreateFramebuffer(device, &framebuffer_info, nullptr, &imgui_swap_chain_framebuffers[i]) != VK_SUCCESS)
+      throw std::runtime_error("VKERR: Failed to create ImGui framebuffer!");
+  }
+}
+
 #pragma endregion
 
 #pragma region Create Command Pool
 
-void Renderer::createCommandPool()
+void Renderer::createCommandPool(VkCommandPool* pool, VkCommandPoolCreateFlags flags)
 {
   QueueFamilyIndices queue_fam_indis = findQueueFamilies(pdevice);
 
   VkCommandPoolCreateInfo pool_info = {};
   pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   pool_info.queueFamilyIndex = queue_fam_indis.graphics_fam.value();
-  pool_info.flags = 0; // Optional
+  pool_info.flags = flags;
 
-  if(vkCreateCommandPool(device, &pool_info, nullptr, &cmd_pool) != VK_SUCCESS)
+  if(vkCreateCommandPool(device, &pool_info, nullptr, pool) != VK_SUCCESS)
   {
     throw std::runtime_error("VKERR: Failed to create command pool!");
   }
@@ -1157,6 +1235,21 @@ void Renderer::createCommandBuffers()
   }
 }
 
+void Renderer::createImGuiCommandBuffers()
+{
+  //Allocate the command buffer
+  imgui_cmd_buffers.resize(swap_chain_framebuffers.size());
+
+  VkCommandBufferAllocateInfo alloc_info = {};
+  alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  alloc_info.commandPool = imgui_cmd_pool;
+  alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  alloc_info.commandBufferCount = (uint32_t)imgui_cmd_buffers.size();
+
+  if (vkAllocateCommandBuffers(device, &alloc_info, imgui_cmd_buffers.data()) != VK_SUCCESS)
+    throw std::runtime_error("VKERR: Failed to allocate command buffers!");
+}
+
 
 #pragma endregion
 
@@ -1196,6 +1289,8 @@ void Renderer::createSyncObjects()
 
 void Renderer::drawFrame(float time)
 {
+  auto start_time = std::chrono::high_resolution_clock::now();
+
   vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
   vkResetFences(device, 1, &in_flight_fences[current_frame]);
 
@@ -1307,75 +1402,110 @@ void Renderer::drawFrame(float time)
     throw std::runtime_error("UNIMPLEMENTED!!!!");
 
   void* data;
-  vkMapMemory(device, note_instance_buffer_mem, 0, sizeof(InstanceData) * last_notes_shown_count, 0, &data);
-  if (last_notes_shown_count > notes_shown_size)
-    memset((char*)data + notes_shown_size * sizeof(InstanceData), 0, sizeof(InstanceData) * (last_notes_shown_count - notes_shown_size));
-
-  InstanceData* data_i = (InstanceData*)data;
-  //cout << endl << "Notes playing: " << notes_shown.size();
-
-  last_notes_shown_count = notes_shown_size;
-
-  size_t key_indices[256] = {};
-  size_t cur_offset = 0;
-  
-  // yep, this iterates over the keys twice...
-  for (int i = 0; i < 256; i++) {
-    if (g_sharp_table[i]) {
-      key_indices[i] = cur_offset;
-      cur_offset += notes_per_key[i];
-    }
-  }
-  for (int i = 0; i < 256; i++) {
-    if (!g_sharp_table[i]) {
-      key_indices[i] = cur_offset;
-      cur_offset += notes_per_key[i];
-    }
-  }
-
-  concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i) {
-    auto& list = notes_shown[i];
-    for (auto it = list.begin(); it != list.end();)
-    {
-      Note n = *it;
-      if (time >= n.end)
-      {
-        //event_queue[i].push_back(MAKELONG(MAKEWORD((n->channel) | (8 << 4), n->key), MAKEWORD(n->velocity, 0)));
-        data_i[key_indices[i]++] = { 0, 0, 0, {0,0,0} };
-        notes_per_key[i]--;
-        //delete n;
-        it = list.erase(it);
-      }
-      else
-      {
-        data_i[key_indices[i]++] = { static_cast<float>(n.start), static_cast<float>(n.end), n.key, colors[n.track & 0xF] };
-        it++;
-      }
-    }
-  });
-
   int note_cmd_buf = 0;
-  for (int i = 0; i < MAX_NOTES_MULT; i++) {
-    if (notes_shown_size <= (MAX_NOTES_BASE * (i + 1))) {
-      note_cmd_buf = i;
-      break;
+  if (last_notes_shown_count > 0) {
+    vkMapMemory(device, note_instance_buffer_mem, 0, sizeof(InstanceData) * last_notes_shown_count, 0, &data);
+    if (last_notes_shown_count > notes_shown_size)
+      memset((char*)data + notes_shown_size * sizeof(InstanceData), 0, sizeof(InstanceData) * (last_notes_shown_count - notes_shown_size));
+
+    InstanceData* data_i = (InstanceData*)data;
+    //cout << endl << "Notes playing: " << notes_shown.size();
+
+    last_notes_shown_count = notes_shown_size;
+
+    size_t key_indices[256] = {};
+    size_t cur_offset = 0;
+
+    // yep, this iterates over the keys twice...
+    for (int i = 0; i < 256; i++) {
+      if (g_sharp_table[i]) {
+        key_indices[i] = cur_offset;
+        cur_offset += notes_per_key[i];
+      }
     }
+    for (int i = 0; i < 256; i++) {
+      if (!g_sharp_table[i]) {
+        key_indices[i] = cur_offset;
+        cur_offset += notes_per_key[i];
+      }
+    }
+
+    concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i) {
+      auto& list = notes_shown[i];
+      for (auto it = list.begin(); it != list.end();)
+      {
+        Note n = *it;
+        if (time >= n.end)
+        {
+          //event_queue[i].push_back(MAKELONG(MAKEWORD((n->channel) | (8 << 4), n->key), MAKEWORD(n->velocity, 0)));
+          data_i[key_indices[i]++] = { 0, 0, 0, {0,0,0} };
+          notes_per_key[i]--;
+          //delete n;
+          it = list.erase(it);
+        }
+        else
+        {
+          data_i[key_indices[i]++] = { static_cast<float>(n.start), static_cast<float>(n.end), n.key, colors[n.track & 0xF] };
+          it++;
+        }
+      }
+      });
+
+    for (int i = 0; i < MAX_NOTES_MULT; i++) {
+      if (notes_shown_size <= (MAX_NOTES_BASE * (i + 1))) {
+        note_cmd_buf = i;
+        break;
+      }
+    }
+
+    //memcpy(data, data_v, (size_t)buffer_size);
+    vkUnmapMemory(device, note_instance_buffer_mem);
+  } else {
+    last_notes_shown_count = notes_shown_size;
   }
 
-  //memcpy(data, data_v, (size_t)buffer_size);
-  vkUnmapMemory(device, note_instance_buffer_mem);
+  // render imgui command buffers
+  ImGui_ImplVulkan_NewFrame();
+  ImGui_ImplGlfw_NewFrame();
+  ImGui::NewFrame();
+  ImGuiFrame();
+  ImGui::Render();
+
+  {
+    vkResetCommandPool(device, imgui_cmd_pool, 0);
+
+    VkCommandBufferBeginInfo begin_info = {};
+    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(imgui_cmd_buffers[img_index], &begin_info);
+
+    VkRenderPassBeginInfo render_pass_info = {};
+    render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    render_pass_info.renderPass = imgui_render_pass;
+    render_pass_info.framebuffer = imgui_swap_chain_framebuffers[img_index];
+    render_pass_info.renderArea.offset = { 0, 0 };
+    render_pass_info.renderArea.extent = swap_chain_extent;
+    vkCmdBeginRenderPass(imgui_cmd_buffers[img_index], &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), imgui_cmd_buffers[img_index]);
+    vkCmdEndRenderPass(imgui_cmd_buffers[img_index]);
+
+    if (vkEndCommandBuffer(imgui_cmd_buffers[img_index]) != VK_SUCCESS)
+      throw std::runtime_error("VKERR: Failed to record ImGui command buffer!");
+  }
 
   //Submit to the command buffer
   VkSubmitInfo submit_info = {};
   submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+  std::array<VkCommandBuffer, 2> command_buffers = { cmd_buffers[note_cmd_buf + img_index * MAX_NOTES_MULT], imgui_cmd_buffers[img_index] };
 
   VkSemaphore wait_semaphores[] = { img_available_semaphore[current_frame] }; //The semaphores we are waiting for
   VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT }; //Wait with writing colors until the image is available
   submit_info.waitSemaphoreCount = 1;
   submit_info.pWaitSemaphores = wait_semaphores;
   submit_info.pWaitDstStageMask = wait_stages;
-  submit_info.commandBufferCount = 1;
-  submit_info.pCommandBuffers = &cmd_buffers[note_cmd_buf + img_index * MAX_NOTES_MULT];
+  submit_info.commandBufferCount = static_cast<uint32_t>(command_buffers.size());
+  submit_info.pCommandBuffers = command_buffers.data();
 
   VkSemaphore signal_semaphores[] = { render_fin_semaphore[current_frame] }; //What semaphores we signal once the cmd buffer finished execution
   submit_info.signalSemaphoreCount = 1;
@@ -1413,6 +1543,56 @@ void Renderer::drawFrame(float time)
   }
 
   current_frame = (current_frame + 1) % max_frames_in_flight;
+
+  auto elapsed_time = std::chrono::duration<double, std::ratio<1>>(std::chrono::high_resolution_clock::now() - start_time).count();
+  max_elapsed_time = max(max_elapsed_time, elapsed_time);
+}
+
+void Renderer::ImGuiFrame() {
+  float framerate = ImGui::GetIO().Framerate;
+  const ImGuiStat statistics[] = {
+    {ImGuiStatType::Float, "FPS: ", &framerate},
+    {ImGuiStatType::Double, "Longest frame: ", &max_elapsed_time},
+  };
+
+  size_t longest_len = 0;
+  const char* longest_str = nullptr;
+  for (auto& stat : statistics) {
+    auto len = strlen(stat.name);
+    if (len > longest_len) {
+      longest_len = len;
+      longest_str = stat.name;
+    }
+  }
+
+  ImGui::ShowDemoWindow();
+  ImGui::SetNextWindowPos(ImVec2(10.0f, 10.0f));
+  auto first_column_len = ImGui::CalcTextSize(longest_str).x;
+  auto second_column_len = 64.0f;
+  ImGui::SetNextWindowSize(ImVec2(first_column_len + second_column_len + 16.0f, 0.0f));
+  ImGui::Begin("stats", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMove |
+    ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoNav |
+    ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing);
+    ImGui::Columns(2, nullptr, false);
+    ImGui::SetColumnWidth(0, first_column_len + 8.0f);
+    ImGui::SetColumnWidth(1, second_column_len + 8.0f);
+    for (auto& stat : statistics) {
+      ImGui::Text(stat.name);
+      ImGui::NextColumn();
+      switch (stat.type) {
+      case ImGuiStatType::Float:
+        ImGui::Text("%.1f", *(float*)stat.value);
+        break;
+      case ImGuiStatType::Double:
+        ImGui::Text("%.1lf", *(double*)stat.value);
+        break;
+      default:
+        throw std::runtime_error("invalid statistic type");
+      }
+      ImGui::NextColumn();
+    }
+    ImGui::Columns(1);
+  ImGui::End();
 }
 
 void Renderer::updateUniformBuffer(uint32_t current_img, float time)
@@ -1554,6 +1734,7 @@ QueueFamilyIndices Renderer::findQueueFamilies(VkPhysicalDevice device)
     i++;
   }
 
+  queue_families = indis;
   return indis;
 }
 
@@ -1802,6 +1983,46 @@ void Renderer::DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMe
   {
     func(instance, debugMessenger, pAllocator);
   }
+}
+
+void Renderer::CheckVkResult(VkResult err) {
+  if (err != VK_SUCCESS)
+    std::runtime_error("VKERR: CheckVKResult failed!");
+}
+
+void Renderer::initImGui() {
+  IMGUI_CHECKVERSION();
+  ImGui::CreateContext();
+  ImGuiIO& io = ImGui::GetIO();
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+  ImGui::StyleColorsDark();
+
+  ImGui_ImplGlfw_InitForVulkan(window, true);
+
+  ImGui_ImplVulkan_InitInfo init_info = {};
+  init_info.Instance = inst;
+  init_info.PhysicalDevice = pdevice;
+  init_info.Device = device;
+  init_info.QueueFamily = queue_families.graphics_fam.value(); // would've failed much earlier if this had no value
+  init_info.Queue = graphics_queue;
+  init_info.PipelineCache = pipeline_cache;
+  init_info.DescriptorPool = imgui_descriptor_pool;
+  init_info.Allocator = nullptr;
+  init_info.MinImageCount = image_count;
+  init_info.ImageCount = image_count;
+  init_info.CheckVkResultFn = CheckVkResult;
+  init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+
+  ImGui_ImplVulkan_Init(&init_info, imgui_render_pass);
+
+  VkCommandBuffer cmd_buf = beginSingleTimeCommands();
+  ImGui_ImplVulkan_CreateFontsTexture(cmd_buf);
+  endSingleTimeCommands(cmd_buf);
+}
+
+void Renderer::destroyImGui() {
+  ImGui_ImplGlfw_Shutdown();
+  ImGui_ImplVulkan_Shutdown();
 }
 
 #pragma endregion
