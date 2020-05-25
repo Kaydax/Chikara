@@ -1307,7 +1307,7 @@ void Renderer::drawFrame(float time)
     throw std::runtime_error("UNIMPLEMENTED!!!!");
 
   void* data;
-  vkMapMemory(device, note_instance_buffer_mem, 0, sizeof(InstanceData) * MAX_NOTES, 0, &data);
+  vkMapMemory(device, note_instance_buffer_mem, 0, sizeof(InstanceData) * last_notes_shown_count, 0, &data);
   if (last_notes_shown_count > notes_shown_size)
     memset((char*)data + notes_shown_size * sizeof(InstanceData), 0, sizeof(InstanceData) * (last_notes_shown_count - notes_shown_size));
 
