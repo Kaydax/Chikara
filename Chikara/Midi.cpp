@@ -457,6 +457,7 @@ MidiTrack::MidiTrack(std::ifstream* _file_stream, size_t _start, size_t _length,
   reader = new BufferedReader(_file_stream, _start, _length, _buffer_size, _mtx);
   ppq = _ppq;
   track_num = _track_num;
+  tempo_multiplier = multiplierFromTempo(500000, ppq);
 }
 
 MidiTrack::~MidiTrack()

@@ -279,6 +279,8 @@ public:
   float keyboard_time = 0;
   char key_color[257] = {};
 
+  bool show_settings = false;
+
   bool framebuffer_resized = false;
 
   float pre_time;

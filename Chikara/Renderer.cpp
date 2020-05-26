@@ -1729,6 +1729,38 @@ void Renderer::ImGuiFrame() {
     ImGui::NextColumn();
   }
   ImGui::Columns(1);
+
+  // settings
+  if (show_settings) {
+    ImGui::SetNextWindowPos(ImVec2(window_width * 0.25, window_height * 0.25), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(window_width / 2, window_height / 2), ImGuiCond_Once);
+    ImGui::Begin("Settings", &show_settings);
+    if (ImGui::BeginTabBar("SettingsTabBar")) {
+      if (ImGui::BeginTabItem("Playback")) {
+        ImGui::SliderFloat("Note Speed", &pre_time, 0.01, 10);
+        ImGui::EndTabItem();
+      }
+      if (ImGui::BeginTabItem("About")) {
+        ImGui::Text("Chikara");
+        ImGui::SameLine();
+        ImGui::Text(CHIKARA_VERSION);
+
+        ImGui::Text("Compiled");
+        ImGui::SameLine();
+        ImGui::Text(__DATE__);
+        ImGui::SameLine();
+        ImGui::Text(__TIME__);
+
+        ImGui::EndTabItem();
+      }
+    }
+    ImGui::End();
+  } else {
+    auto& io = ImGui::GetIO();
+    if (io.MouseClicked[0])
+      show_settings = true;
+  }
+
   ImGui::End();
 }
 
