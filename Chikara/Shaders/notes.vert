@@ -24,10 +24,13 @@ layout(location = 1) out vec2 fragTexCoord;
 layout(location = 2) out vec2 vNoteSize;
 
 const int N_NOTES = 128;
-const float blackWidth = 0.75;
+const float blackWidth = 0.6;
+const float blackKey3Offset = 0.5f;
+const float blackKey2Offset = 0.3f;
 const int whiteMap[12] = int[12](0, 1, 1, 2, 2, 3, 4, 4, 5, 5, 6, 7);
 const bool isBlackKey[12] = bool[12](false, true, false, true, false, false, true, false, true, false, true, false);
 const int blackOffset[12] = int[12](0, 0, 1, 1, 2, 2, 2, 3, 3, 4, 4, 5);
+const float blackXOffset[12] = float[12](0.0f, blackWidth / 2 * blackKey2Offset, 0.0f, -(blackWidth / 2 * blackKey2Offset), 0.0f, 0.0f, blackWidth / 2 * blackKey3Offset, 0.0f, 0.0f, 0.0f, -(blackWidth / 2 * blackKey3Offset), 0.0f);
 const int nWhiteKeys = N_NOTES / 12 * 7 + whiteMap[(N_NOTES % 12)];
 
 float getNoteOffset(int note)
@@ -37,7 +40,7 @@ float getNoteOffset(int note)
   int note2 = note % 12;
   int note3 = note2;
   note2 -= blackOffset[note2];
-  float boff = isBlackKey[note3] ? -blackWidth / 2.0 : 0.0;
+  float boff = isBlackKey[note3] ? -blackWidth / 2.0 - blackXOffset[note3] : 0.0;
   float x = (float(note2) + float(octave) * 7.0 + boff) / float(nWhiteKeys);
 
   return x;
