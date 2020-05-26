@@ -10,9 +10,14 @@ Not currently possible.
 
 ## How to play a MIDI
 
-1. Open a terminal window
-2. Go to the folder with your MIDI and Chikara
-3. Run
+1. Drag and drop a midi file onto Chikara.exe
+2. Enjoy
+
+or if you want to use command prompt:
+
+1. Open command prompt and navagate to the folder where Chikara.exe is
+2. Run this command:
+
 ```
 Chikara.exe <MIDI FILE PATH HERE>
 ```
