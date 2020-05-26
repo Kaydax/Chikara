@@ -58,6 +58,7 @@ const bool enable_validation_layers = true;
 typedef enum {
   Float,
   Double,
+  Uint64,
 } ImGuiStatType;
 
 struct ImGuiStat

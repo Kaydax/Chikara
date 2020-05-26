@@ -270,7 +270,7 @@ VkSurfaceFormatKHR Renderer::chooseSwapSurfaceFormat(const std::vector<VkSurface
 {
   for(const auto& available_format : available_formats)
   {
-    if(available_format.format == VK_FORMAT_B8G8R8A8_SRGB && available_format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+    if(available_format.format == VK_FORMAT_B8G8R8A8_UNORM && available_format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
     {
       return available_format;
     }
@@ -1553,6 +1553,7 @@ void Renderer::ImGuiFrame() {
   const ImGuiStat statistics[] = {
     {ImGuiStatType::Float, "FPS: ", &framerate},
     {ImGuiStatType::Double, "Longest frame: ", &max_elapsed_time},
+    {ImGuiStatType::Uint64, "Notes rendered: ", &last_notes_shown_count},
   };
 
   size_t longest_len = 0;
@@ -1565,7 +1566,7 @@ void Renderer::ImGuiFrame() {
     }
   }
 
-  ImGui::ShowDemoWindow();
+  //ImGui::ShowDemoWindow();
   ImGui::SetNextWindowPos(ImVec2(10.0f, 10.0f));
   auto first_column_len = ImGui::CalcTextSize(longest_str).x;
   auto second_column_len = 64.0f;
@@ -1585,6 +1586,9 @@ void Renderer::ImGuiFrame() {
         break;
       case ImGuiStatType::Double:
         ImGui::Text("%.1lf", *(double*)stat.value);
+        break;
+      case ImGuiStatType::Uint64:
+        ImGui::Text("%llu", *(uint64_t*)stat.value);
         break;
       default:
         throw std::runtime_error("invalid statistic type");
