@@ -17,7 +17,7 @@ layout(location = 1) in vec2 inTexCoord;
 layout(location = 2) in float noteStart;
 layout(location = 3) in float noteEnd;
 layout(location = 4) in int noteKey;
-layout(location = 5) in vec3 noteColor;
+layout(location = 5) in uint noteColor;
 
 layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec2 fragTexCoord;
@@ -75,7 +75,7 @@ void main() {
     vtx_pos.x *= black ? blackWidth : 1.0; //make thinner if black
     vtx_pos.x += getNoteOffset(noteKey);
     gl_Position = ubo.proj * ubo.view * ubo.model * vec4(vtx_pos, 0.0, 1.0);
-    fragColor = noteColor;
+    fragColor = vec3(float(noteColor & 0xFF) / 256.0f, float((noteColor >> 8) & 0xFF) / 256.0f, float((noteColor >> 16) & 0xFF) / 256.0f);
     fragTexCoord = inTexCoord;
     vNoteSize = vec2((black ? blackWidth : 1.0) / float(nWhiteKeys), fakeNoteEnd - noteStart);
 }

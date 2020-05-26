@@ -31,11 +31,13 @@ glm::vec3 colors[16] = {
   {231 / 255.0f, 255 / 255.0f, 51 / 255.0f}
 };
 
+uint32_t colors_packed[16];
 uint32_t dark_colors[16];
 uint32_t darker_colors[16];
 
 Renderer::Renderer() {
   for (int i = 0; i < 16; i++) {
+    colors_packed[i] = encode_color(colors[i]);
     dark_colors[i] = encode_color(colors[i] * glm::vec3(0.8));
     darker_colors[i] = encode_color(colors[i] * glm::vec3(0.7));
   }
@@ -91,7 +93,8 @@ void Renderer::createInstance()
   VkResult res = vkCreateInstance(&create_info, nullptr, &inst);
   if (res != VK_SUCCESS)
   {
-    throw std::runtime_error("VKERR: Failed to create instance!");
+    MessageBoxA(NULL, "Failed to create a Vulkan instance. Please verify that your GPU supports Vulkan, and update your drivers if needed.", "Fatal Error", MB_ICONERROR);
+    exit(1);
   }
 }
 
@@ -1411,7 +1414,7 @@ void Renderer::drawFrame(float time)
     notes_shown_size += vec.size();
 
   if (notes_shown_size > MAX_NOTES) {
-    MessageBoxA(NULL, "There's a note limit right now of 100 million notes onscreen at the same time.", "Sorry!", MB_ICONERROR);
+    MessageBoxA(NULL, "There's a note limit right now of 50 million notes onscreen at the same time.", "Sorry!", MB_ICONERROR);
     exit(1);
   }
 
@@ -1454,7 +1457,7 @@ void Renderer::drawFrame(float time)
         if (time >= n.end)
         {
           //event_queue[i].push_back(MAKELONG(MAKEWORD((n->channel) | (8 << 4), n->key), MAKEWORD(n->velocity, 0)));
-          data_i[key_indices[i]++] = { 0, 0, 0, {0,0,0} };
+          data_i[key_indices[i]++] = { 0, 0, 0, 0 };
           notes_per_key[i]--;
           //delete n;
           it = list.erase(it);
@@ -1465,7 +1468,7 @@ void Renderer::drawFrame(float time)
             if (key_color[n.key] == -1)
               key_color[n.key] = n.track & 0xF;
           }
-          data_i[key_indices[i]++] = { static_cast<float>(n.start), static_cast<float>(n.end), n.key, colors[n.track & 0xF] };
+          data_i[key_indices[i]++] = { static_cast<float>(n.start), static_cast<float>(n.end), n.key, colors_packed[n.track & 0xF] };
           it++;
         }
       }

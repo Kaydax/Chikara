@@ -133,7 +133,7 @@ struct InstanceData {
   float start;
   float end;
   int key;
-  glm::vec3 color; // should be an index into a color table
+  uint32_t color;
 
   static VkVertexInputBindingDescription getBindingDescription()
   {
@@ -166,7 +166,7 @@ struct InstanceData {
 
     attrib_descriptions[3].binding = INSTANCE_BUFFER_BIND_ID;
     attrib_descriptions[3].location = VERTEX_ATTRIB_COUNT + 3;
-    attrib_descriptions[3].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attrib_descriptions[3].format = VK_FORMAT_R32_UINT;
     attrib_descriptions[3].offset = offsetof(InstanceData, color);
 
     return std::vector(attrib_descriptions.begin(), attrib_descriptions.end());
