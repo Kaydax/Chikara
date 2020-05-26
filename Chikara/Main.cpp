@@ -118,9 +118,9 @@ void Main::mainLoop()
       last_time = timer.now();
       fps = frame_counter;
       frame_counter = 0;
-      std::cout << std::endl << fps << " fps";
-      std::string title = std::string("Chikara | FPS: ") + std::to_string(fps);
-      glfwSetWindowTitle(r.window, title.c_str());
+      //std::cout << std::endl << fps << " fps";
+      //std::string title = std::string("Chikara | FPS: ") + std::to_string(fps);
+      //glfwSetWindowTitle(r.window, title.c_str());
     }
   }
 
