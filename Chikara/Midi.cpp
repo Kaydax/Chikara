@@ -209,7 +209,8 @@ void Midi::loadMidi()
 
   } catch(const char* e)
   {
-    std::cout << "\n" << e;
+    MessageBoxA(NULL, "This MIDI doesn't appear to be valid.", "Fatal Error", MB_ICONERROR);
+    exit(1);
   }
 }
 

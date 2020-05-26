@@ -5,5 +5,5 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-uint32_t encode_color(glm::vec3& col);
+uint32_t encode_color(glm::vec3 col);
 glm::vec3 decode_color(uint32_t col);

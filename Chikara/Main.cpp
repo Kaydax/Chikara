@@ -51,7 +51,7 @@ void Main::initWindow()
   glfwInit(); //Init glfw
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); //Set the glfw api to GLFW_NO_API because we are using Vulkan
   glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); //Change the ability to resize the window
-  r.window = glfwCreateWindow(width, height, "Chikara", nullptr, nullptr); //Now we create the window
+  r.window = glfwCreateWindow(default_width, default_height, "Chikara", nullptr, nullptr); //Now we create the window
   glfwSetWindowUserPointer(r.window, &r);
   glfwSetFramebufferSizeCallback(r.window, r.framebufferResizeCallback);
 }
@@ -89,6 +89,7 @@ void Main::initVulkan()
   r.createImGuiCommandBuffers();
   r.createSyncObjects();
   r.initImGui();
+  r.PrepareKeyboard();
 }
 
 auto timer = std::chrono::steady_clock();
@@ -173,6 +174,8 @@ void Main::recreateSwapChain()
     glfwGetFramebufferSize(r.window, &width, &height);
     glfwWaitEvents();
   }
+  r.window_width = width;
+  r.window_height = height;
 
   vkDeviceWaitIdle(r.device);
 
@@ -195,6 +198,7 @@ void Main::recreateSwapChain()
   r.createCommandBuffers();
   r.createImGuiCommandBuffers();
   r.initImGui();
+  r.PrepareKeyboard();
 }
 
 #pragma endregion

@@ -34,8 +34,8 @@
 #define VERTEX_BUFFER_BIND_ID 0
 #define INSTANCE_BUFFER_BIND_ID 1
 
-const uint32_t width = 800;
-const uint32_t height = 600;
+const uint32_t default_width = 800;
+const uint32_t default_height = 600;
 
 const int max_frames_in_flight = 1;
 
@@ -180,6 +180,7 @@ struct UniformBufferObject
   alignas(16) glm::mat4 proj;
   float time;
   float pre_time;
+  float keyboard_height;
 };
 
 #pragma endregion
@@ -272,12 +273,23 @@ public:
   std::array<size_t, 256> notes_per_key = {};
   size_t last_notes_shown_count;
 
+  float key_left[257];
+  float key_widths[257];
+  float keyboard_height = 0;
+  float keyboard_time = 0;
+  char key_color[257] = {};
+
   bool framebuffer_resized = false;
 
   float pre_time;
   double max_elapsed_time = 0;
 
   uint32_t current_frame_index;
+
+  int window_width = default_width;
+  int window_height = default_height;
+
+  Renderer();
 
   void createInstance();
   void setupDebugMessenger();
@@ -316,6 +328,7 @@ public:
   void initImGui();
   void destroyImGui();
   void drawFrame(float time);
+  void PrepareKeyboard();
   void ImGuiFrame();
 
   static void framebufferResizeCallback(GLFWwindow* window, int width, int height);

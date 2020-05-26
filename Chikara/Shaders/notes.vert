@@ -58,6 +58,7 @@ layout(binding = 0) uniform UniformBufferObject {
     mat4 proj;
     float time;
     float pre_time;
+    float keyboard_height;
 } ubo;
 
 layout(location = 0) in vec2 inPos;
@@ -132,6 +133,7 @@ void main() {
         break;
     }
     vtx_pos.y /= ubo.pre_time;
+    vtx_pos.y += ubo.keyboard_height;
     vtx_pos.x = inPos.x / float(nWhiteKeys);
     vtx_pos.x *= black ? blackWidth : 1.0; //make thinner if black
     vtx_pos.x += getNoteOffset(noteKey);
