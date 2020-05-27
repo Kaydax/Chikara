@@ -20,6 +20,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="Shaders\notes.frag" />
+    <None Include="Shaders\notes.vert" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\externals\imgui\examples\imgui_impl_glfw.cpp" />
