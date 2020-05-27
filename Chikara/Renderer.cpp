@@ -9,6 +9,8 @@
 #include "Main.h"
 #include "Midi.h"
 #include "KDMAPI.h"
+#include "Licenses.h"
+#include "Config.h"
 
 Main m;
 
@@ -296,9 +298,10 @@ VkSurfaceFormatKHR Renderer::chooseSwapSurfaceFormat(const std::vector<VkSurface
 //Choose what kind of rendering mode the surface should be
 VkPresentModeKHR Renderer::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& available_present_modes)
 {
+  auto target = vsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_MAILBOX_KHR;
   for (const auto& available_present_mode : available_present_modes)
   {
-    if (available_present_mode == VK_PRESENT_MODE_IMMEDIATE_KHR)
+    if (available_present_mode == target)
     {
       return available_present_mode;
     }
@@ -1556,9 +1559,10 @@ void Renderer::drawFrame(float time)
 
   result = vkQueuePresentKHR(present_queue, &present_info);
 
-  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebuffer_resized)
+  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebuffer_resized || Config::GetConfig().vsync != vsync)
   {
     framebuffer_resized = false;
+    vsync = Config::GetConfig().vsync;
     m.recreateSwapChain();
   }
   else if (result != VK_SUCCESS)
@@ -1643,14 +1647,16 @@ void Renderer::ImGuiFrame() {
   ImDrawList* draw_list = ImGui::GetBackgroundDrawList();
   
   // bar
-  /*
-  auto cur_time = midi_renderer_time->load();
-  auto bar_col = IM_COL32(sinf(cur_time / 2) * 127 + 127, sinf(cur_time) * 127 + 127, sinf(cur_time * 1.5) * 127 + 127, 255);
-  draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height - keyboard_height * 0.05),
-    ImVec2(window_width, window_height - keyboard_height), bar_col);
-  */
-  draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height - keyboard_height * 0.05),
-    ImVec2(window_width, window_height - keyboard_height), IM_COL32(0, 196, 177, 255));
+  if (Config::GetConfig().rainbow_bar) {
+    auto cur_time = midi_renderer_time->load();
+    auto bar_col = IM_COL32(sinf(cur_time / 2) * 127 + 127, sinf(cur_time) * 127 + 127, sinf(cur_time * 1.5) * 127 + 127, 255);
+    draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height - keyboard_height * 0.05),
+      ImVec2(window_width, window_height - keyboard_height), bar_col);
+  } else {
+    const auto bar_color = Config::GetConfig().bar_color;
+    draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height - keyboard_height * 0.05),
+      ImVec2(window_width, window_height - keyboard_height), IM_COL32(bar_color.r * 256, bar_color.g * 256, bar_color.b * 256, 255));
+  }
 
   // keyboard background
   draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height), ImVec2(window_width, window_height), IM_COL32(200, 200, 200, 255));
@@ -1734,10 +1740,15 @@ void Renderer::ImGuiFrame() {
   if (show_settings) {
     ImGui::SetNextWindowPos(ImVec2(window_width * 0.25, window_height * 0.25), ImGuiCond_Once);
     ImGui::SetNextWindowSize(ImVec2(window_width / 2, window_height / 2), ImGuiCond_Once);
-    ImGui::Begin("Settings", &show_settings);
+    ImGui::Begin("Settings", &show_settings, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    ImGui::Text("Items marked with a * require a restart.");
+    ImGui::BeginChild("SettingsChild", ImVec2(0, -25), false);
     if (ImGui::BeginTabBar("SettingsTabBar")) {
-      if (ImGui::BeginTabItem("Playback")) {
+      if (ImGui::BeginTabItem("Rendering")) {
+        ImGui::Checkbox("VSync", &Config::GetConfig().vsync);
         ImGui::SliderFloat("Note Speed", &pre_time, 0.01, 10);
+        ImGui::Checkbox("Rainbow Bar", &Config::GetConfig().rainbow_bar);
+        ImGui::ColorEdit3("Bar Color", &Config::GetConfig().bar_color.r, ImGuiColorEditFlags_RGB); // haha undefined behavior go Segmentation fault
         ImGui::EndTabItem();
       }
       if (ImGui::BeginTabItem("About")) {
@@ -1751,13 +1762,32 @@ void Renderer::ImGuiFrame() {
         ImGui::SameLine();
         ImGui::Text(__TIME__);
 
+        ImGui::Text("There needs to be some more stuff here...");
+
+        ImGui::Separator();
+        if (ImGui::TreeNode("Licenses")) {
+          #define MAKE_LICENSE_TREE(x) if (ImGui::TreeNode(#x)) {ImGui::Text(g_##x##_license); ImGui::TreePop();}
+          MAKE_LICENSE_TREE(imgui);
+          MAKE_LICENSE_TREE(readerwriterqueue);
+          MAKE_LICENSE_TREE(stb);
+          MAKE_LICENSE_TREE(inih);
+
+          ImGui::TreePop();
+        }
+
         ImGui::EndTabItem();
       }
+    }
+    ImGui::EndChild();
+    ImGui::Separator();
+    if (ImGui::Button("Save")) {
+      Config::GetConfig().Save(); // TODO: error handling
     }
     ImGui::End();
   } else {
     auto& io = ImGui::GetIO();
-    if (io.MouseClicked[0])
+    // open on left or right mouse click
+    if (io.MouseClicked[0] || io.MouseClicked[1])
       show_settings = true;
   }
 

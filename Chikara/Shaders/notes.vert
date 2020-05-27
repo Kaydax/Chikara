@@ -54,7 +54,7 @@ void main() {
     }
     float fakeNoteEnd = noteEnd;
     if (noteEnd == uintBitsToFloat(0x7F800000))
-      fakeNoteEnd = ubo.time + 1000;
+      fakeNoteEnd = ubo.time + ubo.pre_time + 1;
     vec2 vtx_pos;
     float flotes = float(N_NOTES); //float notes
     bool black = isBlackKey[noteKey % 12];

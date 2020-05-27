@@ -28,6 +28,9 @@
     <ClCompile Include="..\externals\imgui\imgui_demo.cpp" />
     <ClCompile Include="..\externals\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\externals\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="..\externals\inih\cpp\INIReader.cpp" />
+    <ClCompile Include="..\externals\inih\ini.c" />
+    <ClCompile Include="Config.cpp" />
     <ClCompile Include="KDMAPI.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Midi.cpp" />
@@ -35,7 +38,9 @@
     <ClCompile Include="Renderer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Config.h" />
     <ClInclude Include="KDMAPI.h" />
+    <ClInclude Include="Licenses.h" />
     <ClInclude Include="Main.h" />
     <ClInclude Include="Midi.h" />
     <ClInclude Include="Misc.h" />
@@ -181,16 +186,17 @@
       <PreprocessorDefinitions>CHIKARA_VERSION="Alpha 0.1";NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)externals\imgui;$(SolutionDir)externals\imgui\examples;$(SolutionDir)externals\readerwriterqueue;$(SolutionDir)externals\stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)externals\inih;$(SolutionDir)externals\imgui;$(SolutionDir)externals\imgui\examples;$(SolutionDir)externals\readerwriterqueue;$(SolutionDir)externals\stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <FloatingPointModel>Fast</FloatingPointModel>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <DisableSpecificWarnings>4996</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(VULKAN_SDK)\Lib\vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>shlwapi.lib;$(VULKAN_SDK)\Lib\vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>

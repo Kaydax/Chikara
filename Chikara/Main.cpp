@@ -1,7 +1,6 @@
 #include "Main.h"
-#ifndef KDMAPI_H
 #include "KDMAPI.h"
-#endif
+#include "Config.h"
 
 // msvc complains about narrowing conversion with bin2c
 #pragma warning(push)
@@ -33,6 +32,8 @@ void Main::run(int argc, wchar_t** argv)
     return;
   }
 
+  auto config_path = Config::GetConfigPath();
+  Config::GetConfig().Load(config_path);
   KDMAPI::Init();
   midi = new Midi(argv[1]);
   r.note_event_buffer = midi->note_event_buffer;

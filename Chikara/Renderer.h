@@ -280,6 +280,7 @@ public:
   char key_color[257] = {};
 
   bool show_settings = false;
+  bool vsync = false;
 
   bool framebuffer_resized = false;
 

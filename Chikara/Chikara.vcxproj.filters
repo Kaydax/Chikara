@@ -19,6 +19,9 @@
     <Filter Include="Source Files\imgui">
       <UniqueIdentifier>{8c3e60cf-5489-47e2-b51a-48324a3da5b6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\inih">
+      <UniqueIdentifier>{0e0e3a76-282e-4c16-9859-6af47fe01733}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -57,6 +60,15 @@
     <ClCompile Include="..\externals\imgui\examples\imgui_impl_vulkan.cpp">
       <Filter>Source Files\imgui</Filter>
     </ClCompile>
+    <ClCompile Include="Config.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\externals\inih\ini.c">
+      <Filter>Source Files\inih</Filter>
+    </ClCompile>
+    <ClCompile Include="..\externals\inih\cpp\INIReader.cpp">
+      <Filter>Source Files\inih</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Renderer.h">
@@ -79,6 +91,12 @@
     </ClInclude>
     <ClInclude Include="Shaders\notes_v.h">
       <Filter>Header Files\Shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="Licenses.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Config.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
