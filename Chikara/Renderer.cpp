@@ -1666,7 +1666,7 @@ void Renderer::ImGuiFrame() {
     if (!g_sharp_table[i]) {
       if (key_color[i] == -1) {
         draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height), ImVec2(key_left[i] + key_widths[i], window_height), IM_COL32(175, 175, 175, 255), 2);
-        draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height), ImVec2(key_left[i] + key_widths[i], window_height - (keyboard_height * 0.025)), IM_COL32(255, 255, 255, 255), 2);
+        draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height), ImVec2(key_left[i] + key_widths[i], window_height - (keyboard_height * 0.05)), IM_COL32(255, 255, 255, 255), 2);
       } else {
         uint32_t col = dark_colors[key_color[i]];
         draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height), ImVec2(key_left[i] + key_widths[i], window_height), col, 2);
