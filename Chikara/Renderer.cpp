@@ -1352,7 +1352,7 @@ void Renderer::drawFrame(float time)
           Note n;
           n.track = event.track;
           n.start = event.time;
-          n.end = INFINITY;
+          n.end = 100000;
           n.key = i;
 
           notes_shown[i].push_front(n);
@@ -1371,7 +1371,7 @@ void Renderer::drawFrame(float time)
         }
         case NoteEventType::TrackEnded: {
           for (auto& n : notes_shown[i]) {
-            if ((n.track & ~0xF) >> 4 == event.track && n.end == INFINITY)
+            if ((n.track & ~0xF) >> 4 == event.track && n.end == 100000)
               n.end = event.time;
           }
           break;
