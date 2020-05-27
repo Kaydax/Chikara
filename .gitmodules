@@ -7,3 +7,6 @@
 [submodule "externals/imgui"]
 	path = externals/imgui
 	url = https://github.com/ocornut/imgui
+[submodule "externals/inih"]
+	path = externals/inih
+	url = https://github.com/benhoyt/inih
