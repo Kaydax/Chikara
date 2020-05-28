@@ -37,6 +37,9 @@ uint32_t colors_packed[16];
 uint32_t dark_colors[16];
 uint32_t darker_colors[16];
 
+// memcmped against to check if the screen is completely covered
+bool full_note_depth_buffer[NOTE_DEPTH_BUFFER_SIZE];
+
 Renderer::Renderer() {
   for (int i = 0; i < 16; i++) {
     colors_packed[i] = encode_color(colors[i]);
@@ -44,6 +47,7 @@ Renderer::Renderer() {
     darker_colors[i] = encode_color(colors[i] * glm::vec3(0.7));
   }
   memset(key_color, 0xFFFFFFFF, sizeof(key_color));
+  memset(full_note_depth_buffer, 0x01010101, sizeof(full_note_depth_buffer));
 }
 
 #pragma region Create the instance
@@ -1354,9 +1358,9 @@ void Renderer::drawFrame(float time)
           n.start = event.time;
           n.end = 100000;
           n.key = i;
+          n.hidden = false;
 
           notes_shown[i].push_front(n);
-          notes_per_key[i]++;
           note_stack.push(&notes_shown[i].front());
           break;
         }
@@ -1384,37 +1388,42 @@ void Renderer::drawFrame(float time)
     }
     });
 
-  /*
+  // don't render overlaps
+  // should be an option after settings recode
   concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i) {
-    moodycamel::ReaderWriterQueue<Note*>* notes = note_buffer[i];
-    //for(int j = 0; j < 1; j++)
-    while (true)
-    {
-      Note** peek = notes->peek();
-      if (peek == nullptr)
-        break;
-      Note* n = *peek;
-      if (n->end < n->start)
-      {
-        throw std::runtime_error("The fucking midi broke");
-      }
-      if (n->start < time + pre_time)
-      {
-        notes->try_dequeue(n);
-        notes_shown[n->key].push_front(n);
-        notes_per_key[i]++;
-      }
-      else
-      {
-        break;
+    notes_hidden[i] = 0;
+    auto& depth_buf = note_depth_buffer[i];
+    memset(depth_buf.data(), 0, depth_buf.size());
+    auto& list = notes_shown[i];
+    bool stop_rendering = false; // active if the entire column gets covered in notes
+    for (auto& n : list) {
+      if (stop_rendering) {
+        n.hidden = true;
+        notes_hidden[i]++;
+      } else {
+        size_t start = max(0, (n.start - time) / pre_time * NOTE_DEPTH_BUFFER_SIZE);
+        size_t end = min(NOTE_DEPTH_BUFFER_SIZE, (size_t)max(start, ((n.end - time) / pre_time * NOTE_DEPTH_BUFFER_SIZE)));
+        n.hidden = false;
+        // fast path, will probably save a lot of time
+        if (!(depth_buf[start] && depth_buf[end])) {
+          if (!memcmp(&depth_buf[start], full_note_depth_buffer, end - start)) {
+            n.hidden = true;
+            notes_hidden[i]++;
+            continue;
+          }
+        }
+        memset(&depth_buf[start], 0x01010101, end - start);
+        if (!memcmp(depth_buf.data(), full_note_depth_buffer, sizeof(full_note_depth_buffer)))
+          stop_rendering = true;
       }
     }
     });
-   */
 
   size_t notes_shown_size = 0;
   for (auto& vec : notes_shown)
     notes_shown_size += vec.size();
+  for (auto hidden : notes_hidden)
+    notes_shown_size -= hidden;
 
   if (notes_shown_size > MAX_NOTES) {
     MessageBoxA(NULL, "There's a note limit right now of 50 million notes onscreen at the same time.", "Sorry!", MB_ICONERROR);
@@ -1440,13 +1449,13 @@ void Renderer::drawFrame(float time)
     for (int i = 0; i < 256; i++) {
       if (g_sharp_table[i]) {
         key_indices[i] = cur_offset;
-        cur_offset += notes_per_key[i];
+        cur_offset += notes_shown[i].size() - notes_hidden[i];
       }
     }
     for (int i = 0; i < 256; i++) {
       if (!g_sharp_table[i]) {
         key_indices[i] = cur_offset;
-        cur_offset += notes_per_key[i];
+        cur_offset += notes_shown[i].size() - notes_hidden[i];
       }
     }
 
@@ -1457,11 +1466,22 @@ void Renderer::drawFrame(float time)
       for (auto it = list.begin(); it != list.end();)
       {
         Note n = *it;
+        if (n.hidden) {
+          if (time >= n.end)
+            it = list.erase(it);
+          else {
+            if (time >= n.start) {
+              if (key_color[n.key] == -1)
+                key_color[n.key] = n.track & 0xF;
+            }
+            it++;
+          }
+          continue;
+        }
         if (time >= n.end)
         {
           //event_queue[i].push_back(MAKELONG(MAKEWORD((n->channel) | (8 << 4), n->key), MAKEWORD(n->velocity, 0)));
           data_i[key_indices[i]++] = { 0, 0, 0, 0 };
-          notes_per_key[i]--;
           //delete n;
           it = list.erase(it);
         }
@@ -1540,8 +1560,10 @@ void Renderer::drawFrame(float time)
 
   vkResetFences(device, 1, &in_flight_fences[current_frame]);
 
-  if (vkQueueSubmit(graphics_queue, 1, &submit_info, in_flight_fences[current_frame]) != VK_SUCCESS)
+  auto submit_res = vkQueueSubmit(graphics_queue, 1, &submit_info, in_flight_fences[current_frame]);
+  if (submit_res != VK_SUCCESS)
   {
+    printf("%d\n", submit_res);
     throw std::runtime_error("VKERR: Failed to submit draw to command buffer!");
   }
 
@@ -1690,10 +1712,14 @@ void Renderer::ImGuiFrame() {
 
   // statistics
   float framerate = ImGui::GetIO().Framerate;
+  size_t notes_hidden_count = 0;
+  for (auto hidden : notes_hidden)
+    notes_hidden_count += hidden;
   const ImGuiStat statistics[] = {
     {ImGuiStatType::Float, "FPS: ", &framerate},
     {ImGuiStatType::Double, "Longest frame: ", &max_elapsed_time},
     {ImGuiStatType::Uint64, "Notes rendered: ", &last_notes_shown_count},
+    {ImGuiStatType::Uint64, "Notes hidden: ", &notes_hidden_count},
   };
 
   size_t longest_len = 0;

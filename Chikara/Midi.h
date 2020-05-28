@@ -28,6 +28,7 @@ struct Note
   float end;
   uint32_t track; // actually (track * 16) + channel
   unsigned char key;
+  bool hidden;
 };
 
 struct Tempo

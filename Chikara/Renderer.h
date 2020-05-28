@@ -34,8 +34,10 @@
 #define VERTEX_BUFFER_BIND_ID 0
 #define INSTANCE_BUFFER_BIND_ID 1
 
-const uint32_t default_width = 800;
-const uint32_t default_height = 600;
+#define NOTE_DEPTH_BUFFER_SIZE 2048
+
+const uint32_t default_width = 1280;
+const uint32_t default_height = 720;
 
 const int max_frames_in_flight = 1;
 
@@ -270,8 +272,10 @@ public:
   std::vector<VkSemaphore> next_step_semaphores;
 
   std::array<std::list<Note>, 256> notes_shown;
-  std::array<size_t, 256> notes_per_key = {};
   size_t last_notes_shown_count;
+
+  std::array<std::array<bool, NOTE_DEPTH_BUFFER_SIZE>, 256> note_depth_buffer;
+  std::array<size_t, 256> notes_hidden;
 
   float key_left[257];
   float key_widths[257];
