@@ -1402,9 +1402,9 @@ void Renderer::drawFrame(float time)
         notes_hidden[i]++;
       } else {
         size_t start = max(0, (n.start - time) / pre_time * NOTE_DEPTH_BUFFER_SIZE);
-        size_t end = min(NOTE_DEPTH_BUFFER_SIZE, (size_t)max(start, ((n.end - time) / pre_time * NOTE_DEPTH_BUFFER_SIZE)));
+        size_t end = min(NOTE_DEPTH_BUFFER_SIZE, max(start, ((n.end - time) / pre_time * NOTE_DEPTH_BUFFER_SIZE)));
         n.hidden = false;
-        if (start >= end) // even after that casting hell it's not enough
+        if (start > end) // even after that casting hell it's not enough
           return;
         // fast path, will probably save a lot of time
         if (!(depth_buf[start] && depth_buf[end])) {
