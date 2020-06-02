@@ -1682,7 +1682,7 @@ void Renderer::ImGuiFrame() {
   }
 
   // keyboard background
-  draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height), ImVec2(window_width, window_height), IM_COL32(200, 200, 200, 255));
+  draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height), ImVec2(window_width, window_height), IM_COL32(150, 150, 150, 255));
 
   // keys
   for (int i = 0; i <= 127; i++) {
