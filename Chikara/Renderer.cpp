@@ -1313,34 +1313,6 @@ void Renderer::drawFrame(float time)
 {
   auto start_time = std::chrono::high_resolution_clock::now();
 
-  vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
-  vkResetFences(device, 1, &in_flight_fences[current_frame]);
-
-  uint32_t img_index;
-  VkResult result = vkAcquireNextImageKHR(device, swap_chain, UINT64_MAX, img_available_semaphore[current_frame], VK_NULL_HANDLE, &img_index);
-
-  if (result == VK_ERROR_OUT_OF_DATE_KHR)
-  {
-    m.recreateSwapChain();
-    return;
-  }
-  else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
-  {
-    throw std::runtime_error("VKERR: Failed to acquire swap chain image!");
-  }
-
-  //Check if a previous frame is using this image (i.e. there is its fence to wait on)
-  if (imgs_in_flight[img_index] != VK_NULL_HANDLE)
-  {
-    vkWaitForFences(device, 1, &imgs_in_flight[img_index], VK_TRUE, UINT64_MAX);
-  }
-
-  //Mark the image as now being in use by this frame
-  imgs_in_flight[img_index] = imgs_in_flight[current_frame];
-
-  //Update the Uniform Buffer
-  updateUniformBuffer(img_index, time);
-
   concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i) {
     moodycamel::ReaderWriterQueue<NoteEvent>* note_events = note_event_buffer[i];
     while (true) {
@@ -1431,6 +1403,32 @@ void Renderer::drawFrame(float time)
     MessageBoxA(NULL, "There's a note limit right now of 50 million notes onscreen at the same time.", "Sorry!", MB_ICONERROR);
     exit(1);
   }
+
+  vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
+  vkResetFences(device, 1, &in_flight_fences[current_frame]);
+
+  uint32_t img_index;
+  VkResult result = vkAcquireNextImageKHR(device, swap_chain, UINT64_MAX, img_available_semaphore[current_frame], VK_NULL_HANDLE, &img_index);
+
+  if (result == VK_ERROR_OUT_OF_DATE_KHR)
+  {
+    m.recreateSwapChain();
+    return;
+  }
+  else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+  {
+    throw std::runtime_error("VKERR: Failed to acquire swap chain image!");
+  }
+
+  //Check if a previous frame is using this image (i.e. there is its fence to wait on)
+  if (imgs_in_flight[img_index] != VK_NULL_HANDLE)
+    vkWaitForFences(device, 1, &imgs_in_flight[img_index], VK_TRUE, UINT64_MAX);
+
+  //Mark the image as now being in use by this frame
+  imgs_in_flight[img_index] = imgs_in_flight[current_frame];
+
+  //Update the Uniform Buffer
+  updateUniformBuffer(img_index, time);
 
   void* data;
   int note_cmd_buf = 0;
