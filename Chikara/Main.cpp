@@ -101,7 +101,7 @@ uint64_t fps = 0;
 void Main::mainLoop()
 {
   static auto start_time = std::chrono::high_resolution_clock::now();
-  r.pre_time = 0.25;
+  r.pre_time = 0.15;
   midi->SpawnPlaybackThread(start_time);
   while(!glfwWindowShouldClose(r.window))
   {

@@ -8,6 +8,8 @@ layout(binding = 0) uniform UniformBufferObject {
     float time;
     float pre_time;
     float keyboard_height;
+    float width;
+    float height;
 } ubo;
 
 layout(location = 0) in vec2 inPos;
@@ -22,6 +24,8 @@ layout(location = 5) in uint noteColor;
 layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec2 fragTexCoord;
 layout(location = 2) out vec2 vNoteSize;
+layout(location = 3) out float winWidth;
+layout(location = 4) out float winHeight;
 
 const int N_NOTES = 128;
 const float blackWidth = 0.6;
@@ -75,4 +79,6 @@ void main() {
     fragColor = vec3(float(noteColor & 0xFF) / 256.0f, float((noteColor >> 8) & 0xFF) / 256.0f, float((noteColor >> 16) & 0xFF) / 256.0f);
     fragTexCoord = inTexCoord;
     vNoteSize = vec2((black ? blackWidth : 1.0) / float(nWhiteKeys), noteEnd - noteStart);
+    winWidth = ubo.width;
+    winHeight = ubo.height;
 }

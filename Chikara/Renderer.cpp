@@ -1419,7 +1419,7 @@ void Renderer::drawFrame(float time)
           stop_rendering = true;
       }
     }
-    });
+  });
 
   size_t notes_shown_size = 0;
   for (auto& vec : notes_shown)
@@ -1669,6 +1669,7 @@ void Renderer::ImGuiFrame() {
   // keyboard
   //printf("%d\n", white_key_count);
   ImDrawList* draw_list = ImGui::GetBackgroundDrawList();
+  ImGui::SetNextWindowBgAlpha(255);
   
   // bar
   if (Config::GetConfig().rainbow_bar) {
@@ -1848,6 +1849,8 @@ void Renderer::updateUniformBuffer(uint32_t current_img, float time)
   ubo.time = time;
   ubo.pre_time = pre_time;
   ubo.keyboard_height = keyboard_height * 1.05 / window_height;
+  ubo.width = (float)window_width;
+  ubo.height = (float)window_height;
 
   //Now lets copy the data in the uniform buffer into the current uniform buffer
   void* data;
