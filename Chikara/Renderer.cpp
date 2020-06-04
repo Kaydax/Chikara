@@ -1272,7 +1272,6 @@ void Renderer::createImGuiCommandBuffers()
     throw std::runtime_error("VKERR: Failed to allocate command buffers!");
 }
 
-
 #pragma endregion
 
 #pragma region Create sync objects
@@ -1519,8 +1518,6 @@ void Renderer::drawFrame(float time)
   ImGui::Render();
 
   {
-    vkResetCommandPool(device, imgui_cmd_pool, 0);
-
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -1536,8 +1533,15 @@ void Renderer::drawFrame(float time)
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), imgui_cmd_buffers[img_index]);
     vkCmdEndRenderPass(imgui_cmd_buffers[img_index]);
 
-    if (vkEndCommandBuffer(imgui_cmd_buffers[img_index]) != VK_SUCCESS)
+    auto imgui_result = vkEndCommandBuffer(imgui_cmd_buffers[img_index]);
+    if(imgui_result)
+    {
+      vkResetCommandPool(device, imgui_cmd_pool, 0);
+    }
+    else if(imgui_result != VK_SUCCESS)
+    {
       throw std::runtime_error("VKERR: Failed to record ImGui command buffer!");
+    }
   }
 
   //Submit to the command buffer
