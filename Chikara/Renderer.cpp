@@ -1331,8 +1331,8 @@ void Renderer::drawFrame(float time)
           n.key = i;
           n.hidden = false;
 
-          notes_shown[i].push_front(n);
-          note_stack.push(&notes_shown[i].front());
+          notes_shown[i].PushFront(n);
+          note_stack.push(&notes_shown[i].Front()->data);
           break;
         }
         case NoteEventType::NoteOff: {
@@ -1345,7 +1345,8 @@ void Renderer::drawFrame(float time)
           break;
         }
         case NoteEventType::TrackEnded: {
-          for (auto& n : notes_shown[i]) {
+          for (auto x = notes_shown[i].Front(); x; x = x->next) {
+            Note& n = x->data;
             if ((n.track & ~0xF) >> 4 == event.track && n.end == 100000)
               n.end = event.time;
           }
@@ -1367,13 +1368,14 @@ void Renderer::drawFrame(float time)
     memset(depth_buf.data(), 0, depth_buf.size());
     auto& list = notes_shown[i];
     bool stop_rendering = false; // active if the entire column gets covered in notes
-    for (auto& n : list) {
+    for (auto x = notes_shown[i].Front(); x; x = x->next) {
+      Note& n = x->data;
       if (stop_rendering) {
         n.hidden = true;
         notes_hidden[i]++;
       } else {
         size_t start = max(0, (n.start - time) / pre_time * NOTE_DEPTH_BUFFER_SIZE);
-        size_t end = min(NOTE_DEPTH_BUFFER_SIZE, max(start, ((n.end - time) / pre_time * NOTE_DEPTH_BUFFER_SIZE)));
+        size_t end = min(NOTE_DEPTH_BUFFER_SIZE - 1, max(start, ((n.end - time) / pre_time * NOTE_DEPTH_BUFFER_SIZE)));
         n.hidden = false;
         if (start > end) // even after that casting hell it's not enough
           return;
@@ -1394,17 +1396,17 @@ void Renderer::drawFrame(float time)
 
   size_t notes_shown_size = 0;
   for (auto& vec : notes_shown)
-    notes_shown_size += vec.size();
+    notes_shown_size += vec.Size();
   for (auto hidden : notes_hidden)
     notes_shown_size -= hidden;
 
   if (notes_shown_size > MAX_NOTES) {
-    MessageBoxA(NULL, "There's a note limit right now of 50 million notes onscreen at the same time.", "Sorry!", MB_ICONERROR);
+    MessageBoxA(NULL, "There's a note limit right now of 100 million notes onscreen at the same time.", "Sorry!", MB_ICONERROR);
     exit(1);
   }
 
-  vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
-  vkResetFences(device, 1, &in_flight_fences[current_frame]);
+  //vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
+  //vkResetFences(device, 1, &in_flight_fences[current_frame]);
 
   uint32_t img_index;
   VkResult result = vkAcquireNextImageKHR(device, swap_chain, UINT64_MAX, img_available_semaphore[current_frame], VK_NULL_HANDLE, &img_index);
@@ -1448,13 +1450,13 @@ void Renderer::drawFrame(float time)
     for (int i = 0; i < 256; i++) {
       if (g_sharp_table[i]) {
         key_indices[i] = cur_offset;
-        cur_offset += notes_shown[i].size() - notes_hidden[i];
+        cur_offset += notes_shown[i].Size() - notes_hidden[i];
       }
     }
     for (int i = 0; i < 256; i++) {
       if (!g_sharp_table[i]) {
         key_indices[i] = cur_offset;
-        cur_offset += notes_shown[i].size() - notes_hidden[i];
+        cur_offset += notes_shown[i].Size() - notes_hidden[i];
       }
     }
 
@@ -1462,18 +1464,20 @@ void Renderer::drawFrame(float time)
 
     concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i) {
       auto& list = notes_shown[i];
-      for (auto it = list.begin(); it != list.end();)
+      for (auto x = notes_shown[i].Front(); x;)
       {
-        Note n = *it;
+        Note n = x->data;
         if (n.hidden) {
-          if (time >= n.end)
-            it = list.erase(it);
-          else {
+          if (time >= n.end) {
+            auto next = x->next;
+            list.Delete(x);
+            x = next;
+          } else {
             if (time >= n.start) {
               if (key_color[n.key] == -1)
                 key_color[n.key] = n.track & 0xF;
             }
-            it++;
+            x = x->next;
           }
           continue;
         }
@@ -1482,7 +1486,9 @@ void Renderer::drawFrame(float time)
           //event_queue[i].push_back(MAKELONG(MAKEWORD((n->channel) | (8 << 4), n->key), MAKEWORD(n->velocity, 0)));
           data_i[key_indices[i]++] = { 0, 0, 0, 0 };
           //delete n;
-          it = list.erase(it);
+          auto next = x->next;
+          list.Delete(x);
+          x = next;
         }
         else
         {
@@ -1491,7 +1497,7 @@ void Renderer::drawFrame(float time)
               key_color[n.key] = n.track & 0xF;
           }
           data_i[key_indices[i]++] = { static_cast<float>(n.start), static_cast<float>(n.end), n.key, colors_packed[n.track & 0xF] };
-          it++;
+          x = x->next;
         }
       }
       });
@@ -1562,6 +1568,7 @@ void Renderer::drawFrame(float time)
   submit_info.signalSemaphoreCount = 1;
   submit_info.pSignalSemaphores = signal_semaphores;
 
+  vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
   vkResetFences(device, 1, &in_flight_fences[current_frame]);
 
   auto submit_res = vkQueueSubmit(graphics_queue, 1, &submit_info, in_flight_fences[current_frame]);
@@ -1720,11 +1727,15 @@ void Renderer::ImGuiFrame() {
   size_t notes_hidden_count = 0;
   for (auto hidden : notes_hidden)
     notes_hidden_count += hidden;
+  size_t notes_alloced = 0;
+  for (const auto& list : notes_shown)
+    notes_alloced += list.Capacity();
   const ImGuiStat statistics[] = {
     {ImGuiStatType::Float, "FPS: ", &framerate},
     {ImGuiStatType::Double, "Longest frame: ", &max_elapsed_time},
     {ImGuiStatType::Uint64, "Notes rendered: ", &last_notes_shown_count},
     {ImGuiStatType::Uint64, "Notes hidden: ", &notes_hidden_count},
+    {ImGuiStatType::Uint64, "Notes allocated: ", &notes_alloced},
   };
 
   size_t longest_len = 0;

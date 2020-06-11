@@ -25,6 +25,7 @@
 #include <array>
 #include <stack>
 #include "Midi.h"
+#include "CustomList.h"
 
 #pragma endregion
 
@@ -39,7 +40,7 @@
 const uint32_t default_width = 1280;
 const uint32_t default_height = 720;
 
-const int max_frames_in_flight = 3;
+const int max_frames_in_flight = 1;
 
 const std::vector<const char*> validation_layers = {
   "VK_LAYER_KHRONOS_validation"
@@ -273,7 +274,7 @@ public:
 
   std::vector<VkSemaphore> next_step_semaphores;
 
-  std::array<std::list<Note>, 256> notes_shown;
+  std::array<CustomList<Note>, 256> notes_shown;
   size_t last_notes_shown_count;
 
   std::array<std::array<bool, NOTE_DEPTH_BUFFER_SIZE>, 256> note_depth_buffer;
