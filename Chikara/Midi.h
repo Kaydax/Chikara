@@ -65,13 +65,14 @@ struct NoteEvent
 #define SHARP_TABLE_OCTAVE false, true, false, true, false, false, true, false, true, false, true, false,
 #define SEVEN_SHARP_TABLE_OCTAVES SHARP_TABLE_OCTAVE SHARP_TABLE_OCTAVE SHARP_TABLE_OCTAVE SHARP_TABLE_OCTAVE SHARP_TABLE_OCTAVE SHARP_TABLE_OCTAVE SHARP_TABLE_OCTAVE
 
-// 21 full octaves, 4 notes left over
-constexpr std::array<bool, 256> g_sharp_table = {
+// 21 full octaves, 5 notes left over
+// 257 because 256 key mode needs 257 keys displayed
+constexpr std::array<bool, 257> g_sharp_table = {
   SEVEN_SHARP_TABLE_OCTAVES
   SEVEN_SHARP_TABLE_OCTAVES
   SEVEN_SHARP_TABLE_OCTAVES
-//C      C#    D      D#
-  false, true, false, true,
+//C      C#    D      D#    E
+  false, true, false, true, false
 };
 
 class BufferedReader
