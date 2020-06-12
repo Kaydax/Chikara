@@ -39,7 +39,7 @@
 const uint32_t default_width = 1280;
 const uint32_t default_height = 720;
 
-const int max_frames_in_flight = 3;
+const int max_frames_in_flight = 1;
 
 const std::vector<const char*> validation_layers = {
   "VK_LAYER_KHRONOS_validation"

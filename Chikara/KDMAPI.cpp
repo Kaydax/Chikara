@@ -15,17 +15,26 @@ namespace KDMAPI {
     dll_handle = LoadLibraryW(L"OmniMIDI.dll");
     if (!dll_handle) {
       dll_handle = LoadLibraryW(omnimidi_dir);
-      if (!dll_handle)
+      if(!dll_handle)
+      {
+        MessageBoxA(NULL, "OmniMIDI seems to not be installed.", "Fatal Error", MB_ICONERROR);
         throw "OmniMIDI not found!";
+      }   
     }
 
     auto InitializeKDMAPIStream = (BOOL(WINAPI *)())GetProcAddress(dll_handle, "InitializeKDMAPIStream");
-    if (!InitializeKDMAPIStream())
+    if(!InitializeKDMAPIStream())
+    {
+      MessageBoxA(NULL, "KDMAPI appeared to fail initialization.", "KDMAPI Error", MB_ICONERROR);
       throw "KDMAPI init failed!";
+    }
 
     auto IsKDMAPIAvailable = (BOOL(WINAPI*)())GetProcAddress(dll_handle, "IsKDMAPIAvailable");
-    if (!IsKDMAPIAvailable())
+    if(!IsKDMAPIAvailable())
+    {
+      MessageBoxA(NULL, "OmniMIDI was found, but KDMAPI isn't enabled.", "KDMAPI Error", MB_ICONERROR);
       throw "OmniMIDI was found, but KDMAPI isn't enabled.";
+    }
 
     SendDirectData = (MMRESULT(*)(DWORD))GetProcAddress(dll_handle, "SendDirectData");
     TerminateKDMAPIStream = (BOOL(*)())GetProcAddress(dll_handle, "TerminateKDMAPIStream");

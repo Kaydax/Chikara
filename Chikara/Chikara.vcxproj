@@ -185,7 +185,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>CHIKARA_VERSION="Alpha 0.1";NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CHIKARA_VERSION="Alpha 2";NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>$(SolutionDir)externals\json\include;$(SolutionDir)externals\inih;$(SolutionDir)externals\imgui;$(SolutionDir)externals\imgui\examples;$(SolutionDir)externals\readerwriterqueue;$(SolutionDir)externals\stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>

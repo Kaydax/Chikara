@@ -1399,7 +1399,7 @@ void Renderer::drawFrame(float time)
     notes_shown_size -= hidden;
 
   if (notes_shown_size > MAX_NOTES) {
-    MessageBoxA(NULL, "There's a note limit right now of 50 million notes onscreen at the same time.", "Sorry!", MB_ICONERROR);
+    MessageBoxA(NULL, "There's a note limit right now of 100 million notes onscreen at the same time.", "Sorry!", MB_ICONERROR);
     exit(1);
   }
 
