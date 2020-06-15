@@ -1435,8 +1435,8 @@ void Renderer::drawFrame(float time)
     exit(1);
   }
 
-  //vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
-  //vkResetFences(device, 1, &in_flight_fences[current_frame]);
+  vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
+  vkResetFences(device, 1, &in_flight_fences[current_frame]);
 
   uint32_t img_index;
   VkResult result = vkAcquireNextImageKHR(device, swap_chain, UINT64_MAX, img_available_semaphore[current_frame], VK_NULL_HANDLE, &img_index);
@@ -1607,7 +1607,7 @@ void Renderer::drawFrame(float time)
   submit_info.signalSemaphoreCount = 1;
   submit_info.pSignalSemaphores = signal_semaphores;
 
-  vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
+  //vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
   vkResetFences(device, 1, &in_flight_fences[current_frame]);
 
   auto submit_res = vkQueueSubmit(graphics_queue, 1, &submit_info, in_flight_fences[current_frame]);
