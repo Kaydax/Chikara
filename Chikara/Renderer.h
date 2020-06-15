@@ -69,6 +69,7 @@ struct ImGuiStat
   ImGuiStatType type;
   const char* name;
   void* value;
+  bool enabled;
 };
 
 struct QueueFamilyIndices
@@ -288,6 +289,7 @@ public:
 
   bool show_settings = false;
   bool vsync = false;
+  bool hide_notes = false;
 
   bool framebuffer_resized = false;
 

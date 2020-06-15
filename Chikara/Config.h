@@ -16,6 +16,7 @@ public:
   std::string config_path;
 
   bool vsync = false;
+  bool note_hide = false;
   bool rainbow_bar = false;
   glm::vec3 bar_color = glm::vec3(0.0f / 255, 196.0f / 255, 177.0f / 255);
 private:

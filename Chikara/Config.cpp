@@ -24,6 +24,7 @@ void Config::Load(std::string& path) {
   INIReader reader(path.c_str());
 
   vsync = reader.GetBoolean("Chikara", "VSync", vsync);
+  note_hide = reader.GetBoolean("Chikara", "NoteHide", note_hide);
   rainbow_bar = reader.GetBoolean("Chikara", "RainbowBar", rainbow_bar);
   bar_color = GetVec3(reader, "Chikara", "BarColor", bar_color);
 
@@ -41,6 +42,7 @@ bool Config::Save() {
   fprintf(ini, "[Chikara]\n");
 
   WriteBool(ini, "VSync", vsync);
+  WriteBool(ini, "NoteHide", note_hide);
   WriteBool(ini, "RainbowBar", rainbow_bar);
   WriteVec3(ini, "BarColor", bar_color);
 

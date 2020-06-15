@@ -1312,95 +1312,125 @@ void Renderer::drawFrame(float time)
 {
   auto start_time = std::chrono::high_resolution_clock::now();
 
-  concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i) {
+  concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i) 
+  {
     moodycamel::ReaderWriterQueue<NoteEvent>* note_events = note_event_buffer[i];
-    while (true) {
+    while (true) 
+    {
       NoteEvent* peek = note_events->peek();
-      if (peek == nullptr)
+      if(peek == nullptr)
         break;
       NoteEvent event = *peek;
       std::stack<Note*>& note_stack = note_stacks[event.track][i];
-      if (event.time < time + pre_time) {
+      if(event.time < time + pre_time) 
+      {
         note_events->try_dequeue(event);
-        switch (event.type) {
-        case NoteEventType::NoteOn: {
-          Note n;
-          n.track = event.track;
-          n.start = event.time;
-          n.end = 100000;
-          n.key = i;
-          n.hidden = false;
+        switch (event.type) 
+        {
+          case NoteEventType::NoteOn: 
+          {
+            Note n;
+            n.track = event.track;
+            n.start = event.time;
+            n.end = 100000;
+            n.key = i;
+            n.hidden = false;
 
-          notes_shown[i].PushFront(n);
-          note_stack.push(&notes_shown[i].Front()->data);
-          break;
-        }
-        case NoteEventType::NoteOff: {
-          if (!note_stack.empty()) {
-            // dangling pointer here should be impossible
-            Note* n = note_stack.top();
-            note_stack.pop();
-            n->end = event.time;
+            notes_shown[i].PushFront(n);
+            note_stack.push(&notes_shown[i].Front()->data);
+            break;
           }
-          break;
-        }
-        case NoteEventType::TrackEnded: {
-          for (auto x = notes_shown[i].Front(); x; x = x->next) {
-            Note& n = x->data;
-            if ((n.track & ~0xF) >> 4 == event.track && n.end == 100000)
-              n.end = event.time;
+          case NoteEventType::NoteOff: 
+          {
+            if(!note_stack.empty()) 
+            {
+              // dangling pointer here should be impossible
+              Note* n = note_stack.top();
+              note_stack.pop();
+              n->end = event.time;
+            }
+            break;
           }
-          break;
-        }
+          case NoteEventType::TrackEnded: 
+          {
+            for(auto x = notes_shown[i].Front(); x; x = x->next) 
+            {
+              Note& n = x->data;
+              if((n.track & ~0xF) >> 4 == event.track && n.end == 100000)
+                n.end = event.time;
+            }
+            break;
+          }
         }
       }
       else {
         break;
       }
     }
-    });
+  });
 
   // don't render overlaps
   // should be an option after settings recode
-  concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i) {
-    notes_hidden[i] = 0;
-    auto& depth_buf = note_depth_buffer[i];
-    memset(depth_buf.data(), 0, depth_buf.size());
-    auto& list = notes_shown[i];
-    bool stop_rendering = false; // active if the entire column gets covered in notes
-    for (auto x = notes_shown[i].Front(); x; x = x->next) {
-      Note& n = x->data;
-      if (stop_rendering) {
-        n.hidden = true;
-        notes_hidden[i]++;
-      } else {
-        size_t start = max(0, (n.start - time) / pre_time * NOTE_DEPTH_BUFFER_SIZE);
-        size_t end = min(NOTE_DEPTH_BUFFER_SIZE - 1, max(start, ((n.end - time) / pre_time * NOTE_DEPTH_BUFFER_SIZE)));
-        n.hidden = false;
-        if (start > end) // even after that casting hell it's not enough
-          return;
-        // fast path, will probably save a lot of time
-        if (!(depth_buf[start] && depth_buf[end])) {
-          if (!memcmp(&depth_buf[start], full_note_depth_buffer, end - start)) {
-            n.hidden = true;
-            notes_hidden[i]++;
-            continue;
-          }
+
+  if(Config::GetConfig().note_hide != hide_notes)
+  {
+    hide_notes = Config::GetConfig().note_hide;
+    concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i)
+    {
+      notes_hidden[i] = 0;
+    });
+  }
+
+  if(hide_notes)
+  {
+    concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i)
+    {
+      notes_hidden[i] = 0;
+      auto& depth_buf = note_depth_buffer[i];
+      memset(depth_buf.data(), 0, depth_buf.size());
+      auto& list = notes_shown[i];
+      bool stop_rendering = false; // active if the entire column gets covered in notes
+      for(auto x = notes_shown[i].Front(); x; x = x->next)
+      {
+        Note& n = x->data;
+        if(stop_rendering)
+        {
+          n.hidden = true;
+          notes_hidden[i]++;
         }
-        memset(&depth_buf[start], 0x01010101, end - start);
-        if (!memcmp(depth_buf.data(), full_note_depth_buffer, sizeof(full_note_depth_buffer)))
-          stop_rendering = true;
+        else
+        {
+          size_t start = max(0, (n.start - time) / pre_time * NOTE_DEPTH_BUFFER_SIZE);
+          size_t end = min(NOTE_DEPTH_BUFFER_SIZE - 1, max(start, ((n.end - time) / pre_time * NOTE_DEPTH_BUFFER_SIZE)));
+          n.hidden = false;
+          if(start > end) // even after that casting hell it's not enough
+            return;
+          // fast path, will probably save a lot of time
+          if(!(depth_buf[start] && depth_buf[end]))
+          {
+            if(!memcmp(&depth_buf[start], full_note_depth_buffer, end - start))
+            {
+              n.hidden = true;
+              notes_hidden[i]++;
+              continue;
+            }
+          }
+          memset(&depth_buf[start], 0x01010101, end - start);
+          if(!memcmp(depth_buf.data(), full_note_depth_buffer, sizeof(full_note_depth_buffer)))
+            stop_rendering = true;
+        }
       }
-    }
-  });
+    });
+  }
 
   size_t notes_shown_size = 0;
-  for (auto& vec : notes_shown)
+  for(auto& vec : notes_shown)
     notes_shown_size += vec.Size();
-  for (auto hidden : notes_hidden)
+  for(auto hidden : notes_hidden)
     notes_shown_size -= hidden;
 
-  if (notes_shown_size > MAX_NOTES) {
+  if(notes_shown_size > MAX_NOTES) 
+  {
     MessageBoxA(NULL, "There's a note limit right now of 100 million notes onscreen at the same time.", "Sorry!", MB_ICONERROR);
     exit(1);
   }
@@ -1411,18 +1441,16 @@ void Renderer::drawFrame(float time)
   uint32_t img_index;
   VkResult result = vkAcquireNextImageKHR(device, swap_chain, UINT64_MAX, img_available_semaphore[current_frame], VK_NULL_HANDLE, &img_index);
 
-  if (result == VK_ERROR_OUT_OF_DATE_KHR)
+  if(result == VK_ERROR_OUT_OF_DATE_KHR)
   {
     m.recreateSwapChain();
     return;
-  }
-  else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
-  {
+  } else if(result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
     throw std::runtime_error("VKERR: Failed to acquire swap chain image!");
   }
 
   //Check if a previous frame is using this image (i.e. there is its fence to wait on)
-  if (imgs_in_flight[img_index] != VK_NULL_HANDLE)
+  if(imgs_in_flight[img_index] != VK_NULL_HANDLE)
     vkWaitForFences(device, 1, &imgs_in_flight[img_index], VK_TRUE, UINT64_MAX);
 
   //Mark the image as now being in use by this frame
@@ -1433,9 +1461,10 @@ void Renderer::drawFrame(float time)
 
   void* data;
   int note_cmd_buf = 0;
-  if (last_notes_shown_count > 0) {
+  if(last_notes_shown_count > 0) 
+  {
     vkMapMemory(device, note_instance_buffer_mem, 0, sizeof(InstanceData) * last_notes_shown_count, 0, &data);
-    if (last_notes_shown_count > notes_shown_size)
+    if(last_notes_shown_count > notes_shown_size)
       memset((char*)data + notes_shown_size * sizeof(InstanceData), 0, sizeof(InstanceData) * (last_notes_shown_count - notes_shown_size));
 
     InstanceData* data_i = (InstanceData*)data;
@@ -1447,13 +1476,17 @@ void Renderer::drawFrame(float time)
     size_t cur_offset = 0;
 
     // yep, this iterates over the keys twice...
-    for (int i = 0; i < 256; i++) {
-      if (g_sharp_table[i]) {
+    for(int i = 0; i < 256; i++) 
+    {
+      if(g_sharp_table[i]) 
+      {
         key_indices[i] = cur_offset;
         cur_offset += notes_shown[i].Size() - notes_hidden[i];
       }
     }
-    for (int i = 0; i < 256; i++) {
+
+    for(int i = 0; i < 256; i++) 
+    {
       if (!g_sharp_table[i]) {
         key_indices[i] = cur_offset;
         cur_offset += notes_shown[i].Size() - notes_hidden[i];
@@ -1462,26 +1495,30 @@ void Renderer::drawFrame(float time)
 
     memset(key_color, 0xFFFFFFFF, sizeof(key_color));
 
-    concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i) {
+    concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i) 
+    {
       auto& list = notes_shown[i];
       for (auto x = notes_shown[i].Front(); x;)
       {
         Note n = x->data;
-        if (n.hidden) {
-          if (time >= n.end) {
+        if(n.hidden) 
+        {
+          if(time >= n.end) 
+          {
             auto next = x->next;
             list.Delete(x);
             x = next;
           } else {
-            if (time >= n.start) {
-              if (key_color[n.key] == -1)
+            if(time >= n.start) 
+            {
+              if(key_color[n.key] == -1)
                 key_color[n.key] = n.track & 0xF;
             }
             x = x->next;
           }
           continue;
         }
-        if (time >= n.end)
+        if(time >= n.end)
         {
           //event_queue[i].push_back(MAKELONG(MAKEWORD((n->channel) | (8 << 4), n->key), MAKEWORD(n->velocity, 0)));
           data_i[key_indices[i]++] = { 0, 0, 0, 0 };
@@ -1492,18 +1529,21 @@ void Renderer::drawFrame(float time)
         }
         else
         {
-          if (time >= n.start) {
-            if (key_color[n.key] == -1)
+          if(time >= n.start) 
+          {
+            if(key_color[n.key] == -1)
               key_color[n.key] = n.track & 0xF;
           }
           data_i[key_indices[i]++] = { static_cast<float>(n.start), static_cast<float>(n.end), n.key, colors_packed[n.track & 0xF] };
           x = x->next;
         }
       }
-      });
+    });
 
-    for (int i = 0; i < MAX_NOTES_MULT; i++) {
-      if (notes_shown_size <= (MAX_NOTES_BASE * (i + 1))) {
+    for(int i = 0; i < MAX_NOTES_MULT; i++) 
+    {
+      if(notes_shown_size <= (MAX_NOTES_BASE * (i + 1))) 
+      {
         note_cmd_buf = i;
         break;
       }
@@ -1511,8 +1551,7 @@ void Renderer::drawFrame(float time)
 
     //memcpy(data, data_v, (size_t)buffer_size);
     vkUnmapMemory(device, note_instance_buffer_mem);
-  }
-  else {
+  } else {
     last_notes_shown_count = notes_shown_size;
   }
 
@@ -1597,9 +1636,7 @@ void Renderer::drawFrame(float time)
     framebuffer_resized = false;
     vsync = Config::GetConfig().vsync;
     m.recreateSwapChain();
-  }
-  else if (result != VK_SUCCESS)
-  {
+  } else if (result != VK_SUCCESS) {
     throw std::runtime_error("VKERR: Failed to present swap chain image!");
   }
 
@@ -1609,7 +1646,8 @@ void Renderer::drawFrame(float time)
   max_elapsed_time = max(max_elapsed_time, elapsed_time);
 }
 
-void Renderer::PrepareKeyboard() {
+void Renderer::PrepareKeyboard() 
+{
   int width;
   int height;
   glfwGetFramebufferSize(window, &width, &height);
@@ -1624,8 +1662,9 @@ void Renderer::PrepareKeyboard() {
   const auto key_gap = 0.1f;
 
   int white_key_count = 0;
-  for (int i = start_note; i <= end_note; i++) {
-    if (!g_sharp_table[i])
+  for(int i = start_note; i <= end_note; i++) 
+  {
+    if(!g_sharp_table[i])
       white_key_count++;
   }
 
@@ -1639,12 +1678,13 @@ void Renderer::PrepareKeyboard() {
       key_numbers[i] = w++;
   }
 
-  for (int i = 0; i < 257; i++) {
-    if (!g_sharp_table[i]) {
+  for(int i = 0; i < 257; i++) 
+  {
+    if(!g_sharp_table[i]) 
+    {
       key_left[i] = key_numbers[i];
       key_widths[i] = 1;
-    }
-    else {
+    } else {
       int blackKeyNum = key_numbers[i] % 5;
       float offset = black_key_scale / 2;
       if (blackKeyNum == 0) offset += black_key_scale / 2 * black_key_2_offset;
@@ -1664,7 +1704,8 @@ void Renderer::PrepareKeyboard() {
   for (int i = 0; i < 257; i++) {
     key_left[i] = (key_left[i] - scale_left) / scale_original * scale_new;
     key_widths[i] = key_widths[i] / scale_original * scale_new;
-    if (!g_sharp_table[i]) {
+    if(!g_sharp_table[i]) 
+    {
       key_left[i] += 1;
       key_widths[i] -= 2;
     }
@@ -1681,7 +1722,8 @@ void Renderer::ImGuiFrame() {
   ImGui::SetNextWindowBgAlpha(255);
   
   // bar
-  if (Config::GetConfig().rainbow_bar) {
+  if(Config::GetConfig().rainbow_bar) 
+  {
     auto cur_time = midi_renderer_time->load();
     auto bar_col = IM_COL32(sinf(cur_time / 2) * 127 + 127, sinf(cur_time) * 127 + 127, sinf(cur_time * 1.5) * 127 + 127, 255);
     draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height - keyboard_height * 0.05),
@@ -1696,9 +1738,12 @@ void Renderer::ImGuiFrame() {
   draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height), ImVec2(window_width, window_height), IM_COL32(150, 150, 150, 255));
 
   // keys
-  for (int i = 0; i <= 127; i++) {
-    if (!g_sharp_table[i]) {
-      if (key_color[i] == -1) {
+  for(int i = 0; i <= 127; i++) 
+  {
+    if(!g_sharp_table[i]) 
+    {
+      if(key_color[i] == -1) 
+      {
         draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height), ImVec2(key_left[i] + key_widths[i], window_height), IM_COL32(175, 175, 175, 255), 2);
         draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height), ImVec2(key_left[i] + key_widths[i], window_height - (keyboard_height * 0.05)), IM_COL32(255, 255, 255, 255), 2);
       } else {
@@ -1707,9 +1752,11 @@ void Renderer::ImGuiFrame() {
       }
     }
   }
-  for (int i = 0; i <= 127; i++) {
+  for(int i = 0; i <= 127; i++) 
+  {
     if (g_sharp_table[i]) {
-      if (key_color[i] == -1) {
+      if(key_color[i] == -1) 
+      {
         draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height),
                                  ImVec2(key_left[i] + key_widths[i], window_height - (keyboard_height * (45.0f / 125.0f))), IM_COL32(32, 32, 32, 255), 2);
         draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height - (keyboard_height * 0.025)),
@@ -1731,18 +1778,20 @@ void Renderer::ImGuiFrame() {
   for (const auto& list : notes_shown)
     notes_alloced += list.Capacity();
   const ImGuiStat statistics[] = {
-    {ImGuiStatType::Float, "FPS: ", &framerate},
-    {ImGuiStatType::Double, "Longest frame: ", &max_elapsed_time},
-    {ImGuiStatType::Uint64, "Notes rendered: ", &last_notes_shown_count},
-    {ImGuiStatType::Uint64, "Notes hidden: ", &notes_hidden_count},
-    {ImGuiStatType::Uint64, "Notes allocated: ", &notes_alloced},
+    {ImGuiStatType::Float, "FPS: ", &framerate, true},
+    {ImGuiStatType::Double, "Longest frame: ", &max_elapsed_time, true},
+    {ImGuiStatType::Uint64, "Notes rendered: ", &last_notes_shown_count, true},
+    {ImGuiStatType::Uint64, "Notes hidden: ", &notes_hidden_count, hide_notes},
+    {ImGuiStatType::Uint64, "Notes allocated: ", &notes_alloced, true},
   };
 
   size_t longest_len = 0;
   const char* longest_str = nullptr;
-  for (auto& stat : statistics) {
+  for(auto& stat : statistics) 
+  {
     auto len = strlen(stat.name);
-    if (len > longest_len) {
+    if(len > longest_len) 
+    {
       longest_len = len;
       longest_str = stat.name;
     }
@@ -1758,42 +1807,52 @@ void Renderer::ImGuiFrame() {
   ImGui::Columns(2, nullptr, false);
   ImGui::SetColumnWidth(0, first_column_len + 8.0f);
   ImGui::SetColumnWidth(1, second_column_len + 8.0f);
-  for (auto& stat : statistics) {
-    ImGui::Text(stat.name);
-    ImGui::NextColumn();
-    switch (stat.type) {
-    case ImGuiStatType::Float:
-      ImGui::Text("%.1f", *(float*)stat.value);
-      break;
-    case ImGuiStatType::Double:
-      ImGui::Text("%.1lf", *(double*)stat.value);
-      break;
-    case ImGuiStatType::Uint64:
-      ImGui::Text("%llu", *(uint64_t*)stat.value);
-      break;
-    default:
-      throw std::runtime_error("invalid statistic type");
+  for (auto& stat : statistics) 
+  {
+    if(stat.enabled)
+    {
+      ImGui::Text(stat.name);
+      ImGui::NextColumn();
+      switch(stat.type)
+      {
+        case ImGuiStatType::Float:
+          ImGui::Text("%.1f", *(float*)stat.value);
+          break;
+        case ImGuiStatType::Double:
+          ImGui::Text("%.1lf", *(double*)stat.value);
+          break;
+        case ImGuiStatType::Uint64:
+          ImGui::Text("%llu", *(uint64_t*)stat.value);
+          break;
+        default:
+          throw std::runtime_error("invalid statistic type");
+      }
+      ImGui::NextColumn();
     }
-    ImGui::NextColumn();
   }
   ImGui::Columns(1);
 
   // settings
-  if (show_settings) {
+  if(show_settings) 
+  {
     ImGui::SetNextWindowPos(ImVec2(window_width * 0.25, window_height * 0.25), ImGuiCond_Once);
     ImGui::SetNextWindowSize(ImVec2(window_width / 2, window_height / 2), ImGuiCond_Once);
     ImGui::Begin("Settings", &show_settings, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     ImGui::Text("Items marked with a * require a restart.");
     ImGui::BeginChild("SettingsChild", ImVec2(0, -25), false);
-    if (ImGui::BeginTabBar("SettingsTabBar")) {
-      if (ImGui::BeginTabItem("Rendering")) {
+    if(ImGui::BeginTabBar("SettingsTabBar")) 
+    {
+      if(ImGui::BeginTabItem("Rendering")) 
+      {
         ImGui::Checkbox("VSync", &Config::GetConfig().vsync);
+        ImGui::Checkbox("Hide Overlapping Notes", &Config::GetConfig().note_hide);
         ImGui::SliderFloat("Note Speed", &pre_time, 0.01, 10);
         ImGui::Checkbox("Rainbow Bar", &Config::GetConfig().rainbow_bar);
         ImGui::ColorEdit3("Bar Color", &Config::GetConfig().bar_color.r, ImGuiColorEditFlags_RGB); // haha undefined behavior go Segmentation fault
         ImGui::EndTabItem();
       }
-      if (ImGui::BeginTabItem("About")) {
+      if(ImGui::BeginTabItem("About")) 
+      {
         ImGui::Text("Chikara");
         ImGui::SameLine();
         ImGui::Text(CHIKARA_VERSION);
@@ -1807,7 +1866,8 @@ void Renderer::ImGuiFrame() {
         ImGui::Text("There needs to be some more stuff here...");
 
         ImGui::Separator();
-        if (ImGui::TreeNode("Licenses")) {
+        if(ImGui::TreeNode("Licenses")) 
+        {
           #define MAKE_LICENSE_TREE(x) if (ImGui::TreeNode(#x)) {ImGui::Text(g_##x##_license); ImGui::TreePop();}
           MAKE_LICENSE_TREE(imgui);
           MAKE_LICENSE_TREE(readerwriterqueue);
@@ -1816,7 +1876,6 @@ void Renderer::ImGuiFrame() {
 
           ImGui::TreePop();
         }
-
         ImGui::EndTabItem();
       }
     }
@@ -1829,7 +1888,7 @@ void Renderer::ImGuiFrame() {
   } else {
     auto& io = ImGui::GetIO();
     // open on left or right mouse click
-    if (io.MouseClicked[0] || io.MouseClicked[1])
+    if(io.MouseClicked[0] || io.MouseClicked[1])
       show_settings = true;
   }
 
