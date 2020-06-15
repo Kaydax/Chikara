@@ -12,6 +12,4 @@
 	url = https://github.com/benhoyt/inih
 [submodule "externals/json"]
 	path = externals/json
-	url = git@github.com:nlohmann/json.git
-[submodule "json/"]
 	url = https://github.com/nlohmann/json.git
