@@ -22,6 +22,8 @@ or if you want to use command prompt:
 Chikara.exe <MIDI FILE PATH HERE>
 ```
 
+If you use Chikara in a video, please link back here!
+
 # Contributors
 
   - [Kaydax](https://github.com/Kaydax)
