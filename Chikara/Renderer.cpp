@@ -1850,7 +1850,7 @@ void Renderer::ImGuiFrame() {
       if(ImGui::BeginTabItem("Rendering")) 
       {
         ImGui::Checkbox("VSync", &Config::GetConfig().vsync);
-        ImGui::Checkbox("Hide Overlapping Notes", &Config::GetConfig().note_hide);
+        ImGui::Checkbox("Hide Overlapping Notes (only faster on overlap-heavy or sustain-heavy MIDIs)", &Config::GetConfig().note_hide);
         ImGui::SliderFloat("Note Speed", &pre_time, 0.01, 10);
         ImGui::Checkbox("Rainbow Bar", &Config::GetConfig().rainbow_bar);
         ImGui::ColorEdit3("Bar Color", &Config::GetConfig().bar_color.r, ImGuiColorEditFlags_RGB); // haha undefined behavior go Segmentation fault

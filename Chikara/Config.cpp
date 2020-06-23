@@ -67,7 +67,7 @@ void Config::WriteBool(FILE* file, const std::string& name, bool b) {
 }
 
 void Config::WriteVec3(FILE* file, const std::string& name, glm::vec3& value) {
-  fprintf(file, "%sR = %f\n", name, value.r);
-  fprintf(file, "%sG = %f\n", name, value.g);
-  fprintf(file, "%sB = %f\n", name, value.b);
+  fprintf(file, "%sR = %f\n", name.c_str(), value.r);
+  fprintf(file, "%sG = %f\n", name.c_str(), value.g);
+  fprintf(file, "%sB = %f\n", name.c_str(), value.b);
 }
