@@ -262,7 +262,7 @@ void Midi::SpawnLoaderThread()
 
 void Midi::LoaderThread()
 {
-  double seconds = 0;
+  double seconds = -1;
   uint64_t time = 0;
   bool all_ended = false;
   while (true) {

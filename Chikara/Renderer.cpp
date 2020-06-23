@@ -1393,10 +1393,15 @@ void Renderer::drawFrame(float time)
       for(auto x = notes_shown[i].Front(); x; x = x->next)
       {
         Note& n = x->data;
+        bool uncertain = n.end > time + pre_time;
         if(stop_rendering)
         {
-          n.hidden = true;
-          notes_hidden[i]++;
+          if (uncertain) {
+            n.hidden = true;
+            notes_hidden[i]++;
+          } else {
+            notes_shown[i].Delete(x);
+          }
         }
         else
         {
@@ -1410,8 +1415,12 @@ void Renderer::drawFrame(float time)
           {
             if(!memcmp(&depth_buf[start], full_note_depth_buffer, end - start))
             {
-              n.hidden = true;
-              notes_hidden[i]++;
+              if (uncertain) {
+                n.hidden = true;
+                notes_hidden[i]++;
+              } else {
+                notes_shown[i].Delete(x);
+              }
               continue;
             }
           }
@@ -1771,9 +1780,6 @@ void Renderer::ImGuiFrame() {
 
   // statistics
   float framerate = ImGui::GetIO().Framerate;
-  size_t notes_hidden_count = 0;
-  for (auto hidden : notes_hidden)
-    notes_hidden_count += hidden;
   size_t notes_alloced = 0;
   for (const auto& list : notes_shown)
     notes_alloced += list.Capacity();
@@ -1781,7 +1787,6 @@ void Renderer::ImGuiFrame() {
     {ImGuiStatType::Float, "FPS: ", &framerate, true},
     {ImGuiStatType::Double, "Longest frame: ", &max_elapsed_time, true},
     {ImGuiStatType::Uint64, "Notes rendered: ", &last_notes_shown_count, true},
-    {ImGuiStatType::Uint64, "Notes hidden: ", &notes_hidden_count, hide_notes},
     {ImGuiStatType::Uint64, "Notes allocated: ", &notes_alloced, true},
   };
 
