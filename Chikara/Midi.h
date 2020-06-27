@@ -141,6 +141,10 @@ class Midi
     uint32_t tempo_count;
     std::atomic<float> renderer_time;
     uint32_t track_count;
+    uint64_t note_count;
+    uint64_t nps_counter = 0;
+    uint64_t nps = 0;
+    uint64_t notes_played = 0;
   private:
     void loadMidi();
     void assertText(const char* text);

@@ -4,6 +4,7 @@
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
+#include <fmt/locale.h>
 
 #include "Renderer.h"
 #include "Main.h"
@@ -1784,7 +1785,8 @@ void Renderer::ImGuiFrame() {
   for (const auto& list : notes_shown)
     notes_alloced += list.Capacity();
   const ImGuiStat statistics[] = {
-    {ImGuiStatType::Float, "FPS: ", &framerate, true},
+    {ImGuiStatType::Float,  "FPS: ", &framerate, true},
+    {ImGuiStatType::Uint64, "NPS: ", nps, true},
     {ImGuiStatType::Double, "Longest frame: ", &max_elapsed_time, true},
     {ImGuiStatType::Uint64, "Notes rendered: ", &last_notes_shown_count, true},
     {ImGuiStatType::Uint64, "Notes allocated: ", &notes_alloced, true},
@@ -1821,13 +1823,13 @@ void Renderer::ImGuiFrame() {
       switch(stat.type)
       {
         case ImGuiStatType::Float:
-          ImGui::Text("%.1f", *(float*)stat.value);
+          ImGui::Text(fmt::format(std::locale("en_US.UTF-8"), "{:n}", *(float*)stat.value).c_str());
           break;
         case ImGuiStatType::Double:
-          ImGui::Text("%.1lf", *(double*)stat.value);
+          ImGui::Text(fmt::format(std::locale("en_US.UTF-8"), "{:n}", *(double*)stat.value).c_str());
           break;
         case ImGuiStatType::Uint64:
-          ImGui::Text("%llu", *(uint64_t*)stat.value);
+          ImGui::Text(fmt::format(std::locale("en_US.UTF-8"), "{:n}", *(uint64_t*)stat.value).c_str());
           break;
         default:
           throw std::runtime_error("invalid statistic type");
@@ -1836,6 +1838,10 @@ void Renderer::ImGuiFrame() {
     }
   }
   ImGui::Columns(1);
+  auto n_played = fmt::format(std::locale("en_US.UTF-8"), "{:n}", *notes_played);
+  auto count = fmt::format(std::locale("en_US.UTF-8"), "{:n}", *note_count);
+  ImGui::Text((n_played + " / " + count).c_str());
+  if(hide_notes) ImGui::Text("Overlap remover enabled");
 
   // settings
   if(show_settings) 

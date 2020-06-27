@@ -210,6 +210,9 @@ public:
   moodycamel::ReaderWriterQueue<NoteEvent>** note_event_buffer;
   std::vector<std::array<std::stack<Note*>, 256>> note_stacks;
   std::atomic<float>* midi_renderer_time;
+  uint64_t* note_count;
+  uint64_t* notes_played;
+  uint64_t* nps;
   GLFWwindow* window;
   VkInstance inst;
   VkDebugUtilsMessengerEXT debug_msg;
