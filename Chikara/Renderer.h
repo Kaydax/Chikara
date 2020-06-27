@@ -29,8 +29,8 @@
 
 #pragma endregion
 
-#define MAX_NOTES_MULT 2 // 100,000,000
-#define MAX_NOTES_BASE 1000
+#define MAX_NOTES_MULT 5000 // 25,000,000
+#define MAX_NOTES_BASE 5000
 #define MAX_NOTES MAX_NOTES_BASE * MAX_NOTES_MULT
 #define VERTEX_BUFFER_BIND_ID 0
 #define INSTANCE_BUFFER_BIND_ID 1
@@ -51,7 +51,7 @@ const std::vector<const char*> device_exts = {
 };
 
 #ifdef NDEBUG
-const bool enable_validation_layers = true;
+const bool enable_validation_layers = false;
 #else
 const bool enable_validation_layers = true;
 #endif
@@ -242,6 +242,7 @@ public:
   VkBuffer note_index_buffer;
   VkDeviceMemory note_index_buffer_mem;
   std::vector<VkFramebuffer> swap_chain_framebuffers;
+  std::vector<InstanceData> intermediate_data_i;
 
   // render pass #1.1: additional note waterfall passes
   VkRenderPass additional_note_render_pass;
@@ -280,7 +281,7 @@ public:
 
   std::array<CustomList<Note>, 256> notes_shown;
   size_t last_notes_shown_count;
-  size_t notes_rendered;
+  size_t last_instances_processed = 0;
 
   std::array<std::array<bool, NOTE_DEPTH_BUFFER_SIZE>, 256> note_depth_buffer;
   std::array<size_t, 256> notes_hidden;

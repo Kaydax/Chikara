@@ -5,6 +5,8 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
 
+#include <fmt/format.h>
+
 #include "Renderer.h"
 #include "Main.h"
 #include "Midi.h"
@@ -1330,6 +1332,8 @@ void Renderer::submitSingleCommandBuffer(VkCommandBuffer cmds)
   submit_info.signalSemaphoreCount = 0;
   submit_info.pSignalSemaphores = nullptr;
 
+  vkResetFences(device, 1, &in_flight_fences[current_frame]);
+
   auto submit_res = vkQueueSubmit(graphics_queue, 1, &submit_info, in_flight_fences[current_frame]);
   if (submit_res != VK_SUCCESS)
   {
@@ -1337,7 +1341,6 @@ void Renderer::submitSingleCommandBuffer(VkCommandBuffer cmds)
     throw std::runtime_error("VKERR: Failed to submit draw to command buffer!");
   }
   vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
-  vkResetFences(device, 1, &in_flight_fences[current_frame]);
 }
 
 void Renderer::drawFrame(float time)
@@ -1406,7 +1409,7 @@ void Renderer::drawFrame(float time)
   if(Config::GetConfig().note_hide != hide_notes)
   {
     hide_notes = Config::GetConfig().note_hide;
-    memset(notes_hidden.data(), 0, notes_hidden.size());
+    memset(notes_hidden.data(), 0, notes_hidden.size() * sizeof(size_t));
   }
 
   if(hide_notes)
@@ -1460,11 +1463,11 @@ void Renderer::drawFrame(float time)
     });
   }
 
-  size_t total_notes_shown_size = 0;
+  size_t notes_shown_size = 0;
   for(auto& vec : notes_shown)
-    total_notes_shown_size += vec.Size();
+    notes_shown_size += vec.Size();
   for(auto hidden : notes_hidden)
-    total_notes_shown_size -= hidden;
+    notes_shown_size -= hidden;
 
   /*
   if(notes_shown_size > MAX_NOTES) 
@@ -1520,90 +1523,91 @@ void Renderer::drawFrame(float time)
 
   void* data;
   int note_cmd_buf = 0;
-  if (total_notes_shown_size == 0)
-    submitSingleCommandBuffer(cmd_buffers[img_index * MAX_NOTES_MULT]);
-  for (size_t index_offset = 0; index_offset < total_notes_shown_size; index_offset += MAX_NOTES) {
-    size_t notes_shown_size = min(MAX_NOTES, total_notes_shown_size - index_offset);
-    if (last_notes_shown_count > 0) {
-      vkMapMemory(device, note_instance_buffer_mem, 0, sizeof(InstanceData) * last_notes_shown_count, 0, &data);
-      if (last_notes_shown_count > notes_shown_size)
-        memset((char*)data + notes_shown_size * sizeof(InstanceData), 0, sizeof(InstanceData) * (last_notes_shown_count - notes_shown_size));
 
-      InstanceData* data_i = (InstanceData*)data;
-      //cout << endl << "Notes playing: " << notes_shown.size();
+  if (intermediate_data_i.size() < notes_shown_size) {
+    fmt::print("Resized intermediate instance buffer to {:n}\n", notes_shown_size);
+    intermediate_data_i.resize(notes_shown_size);
+  }
 
-      last_notes_shown_count = notes_shown_size;
+  if (last_notes_shown_count > 0) {
+    last_notes_shown_count = notes_shown_size;
 
-      memset(key_color, 0xFFFFFFFF, sizeof(key_color));
+    memset(key_color, 0xFFFFFFFF, sizeof(key_color));
 
-      concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i)
+    concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i)
+      {
+        auto& list = notes_shown[i];
+        for (auto x = notes_shown[i].Front(); x;)
         {
-          auto& list = notes_shown[i];
-          for (auto x = notes_shown[i].Front(); x;)
+          Note n = x->data;
+          if (n.hidden)
           {
-            if (key_indices[i] > notes_shown_size + index_offset)
-              break;
-            Note n = x->data;
-            if (n.hidden)
-            {
-              if (time >= n.end)
-              {
-                auto next = x->next;
-                list.Delete(x);
-                x = next;
-              }
-              else {
-                if (time >= n.start)
-                {
-                  if (key_color[n.key] == -1)
-                    key_color[n.key] = n.track & 0xF;
-                }
-                x = x->next;
-              }
-              continue;
-            }
             if (time >= n.end)
             {
-              //event_queue[i].push_back(MAKELONG(MAKEWORD((n->channel) | (8 << 4), n->key), MAKEWORD(n->velocity, 0)));
-              data_i[key_indices[i]++ - index_offset] = { 0, 0, 0, 0 };
-              //delete n;
               auto next = x->next;
               list.Delete(x);
               x = next;
             }
-            else
-            {
+            else {
               if (time >= n.start)
               {
                 if (key_color[n.key] == -1)
                   key_color[n.key] = n.track & 0xF;
               }
-              data_i[key_indices[i]++ - index_offset] = { static_cast<float>(n.start), static_cast<float>(n.end), n.key, colors_packed[n.track & 0xF] };
               x = x->next;
             }
+            continue;
           }
-        });
-
-      for (int i = 0; i < MAX_NOTES_MULT; i++)
-      {
-        if (notes_shown_size <= (MAX_NOTES_BASE * (i + 1)))
-        {
-          note_cmd_buf = i;
-          break;
+          if (time >= n.end)
+          {
+            //event_queue[i].push_back(MAKELONG(MAKEWORD((n->channel) | (8 << 4), n->key), MAKEWORD(n->velocity, 0)));
+            intermediate_data_i[key_indices[i]++] = { 0, 0, 0, 0 };
+            //delete n;
+            auto next = x->next;
+            list.Delete(x);
+            x = next;
+          }
+          else
+          {
+            if (time >= n.start)
+            {
+              if (key_color[n.key] == -1)
+                key_color[n.key] = n.track & 0xF;
+            }
+            intermediate_data_i[key_indices[i]++] = { static_cast<float>(n.start), static_cast<float>(n.end), n.key, colors_packed[n.track & 0xF] };
+            x = x->next;
+          }
         }
-      }
-
-      //memcpy(data, data_v, (size_t)buffer_size);
-      vkUnmapMemory(device, note_instance_buffer_mem);
-
-      submitSingleCommandBuffer(cmd_buffers[(index_offset == 0 ? 0 : swap_chain_framebuffers.size() * MAX_NOTES_MULT) + note_cmd_buf + img_index * MAX_NOTES_MULT]);
-    }
-    else {
-      last_notes_shown_count = notes_shown_size;
-      submitSingleCommandBuffer(cmd_buffers[(index_offset == 0 ? 0 : swap_chain_framebuffers.size() * MAX_NOTES_MULT) + img_index * MAX_NOTES_MULT]);
-    }
+      });
   }
-  notes_rendered = total_notes_shown_size;
+  else {
+    last_notes_shown_count = notes_shown_size;
+  }
+  
+  size_t instances_left = notes_shown_size;
+  if (notes_shown_size == 0)
+    submitSingleCommandBuffer(cmd_buffers[img_index * MAX_NOTES_MULT]);
+  for (size_t i = 0; i < notes_shown_size; i += MAX_NOTES) {
+    size_t instances_processed = min(instances_left, MAX_NOTES);
+    vkMapMemory(device, note_instance_buffer_mem, 0, sizeof(InstanceData) * instances_processed, 0, &data);
+    memcpy(data, intermediate_data_i.data() + (notes_shown_size - instances_left), instances_processed * sizeof(InstanceData));
+    if (last_instances_processed > instances_processed)
+      memset((InstanceData*)data + instances_processed, 0, sizeof(InstanceData) * (last_instances_processed - instances_processed));
+    vkUnmapMemory(device, note_instance_buffer_mem);
+
+    for (int x = 0; x < MAX_NOTES_MULT; x++)
+    {
+      if (instances_processed <= (MAX_NOTES_BASE * (x + 1)))
+      {
+        note_cmd_buf = x;
+        break;
+      }
+    }
+
+    submitSingleCommandBuffer(cmd_buffers[(i == 0 ? 0 : swap_chain_framebuffers.size() * MAX_NOTES_MULT) + note_cmd_buf + img_index * MAX_NOTES_MULT]);
+    instances_left -= instances_processed;
+    last_instances_processed = instances_processed;
+  }
 
   // render imgui command buffers
   ImGui_ImplVulkan_NewFrame();
@@ -1801,7 +1805,7 @@ void Renderer::ImGuiFrame() {
   const ImGuiStat statistics[] = {
     {ImGuiStatType::Float, "FPS: ", &framerate, true},
     {ImGuiStatType::Double, "Longest frame: ", &max_elapsed_time, true},
-    {ImGuiStatType::Uint64, "Notes rendered: ", &notes_rendered, true},
+    {ImGuiStatType::Uint64, "Notes rendered: ", &last_notes_shown_count, true},
     {ImGuiStatType::Uint64, "Notes allocated: ", &notes_alloced, true},
   };
 
