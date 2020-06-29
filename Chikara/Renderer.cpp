@@ -1820,20 +1820,24 @@ void Renderer::ImGuiFrame() {
     {
       ImGui::Text(stat.name);
       ImGui::NextColumn();
+      std::string str;
       switch(stat.type)
       {
         case ImGuiStatType::Float:
-          ImGui::Text(fmt::format(std::locale("en_US.UTF-8"), "{:n}", *(float*)stat.value).c_str());
+          str = fmt::format(std::locale("en_US.UTF-8"), "{:n}", *(float*)stat.value).c_str();
           break;
         case ImGuiStatType::Double:
-          ImGui::Text(fmt::format(std::locale("en_US.UTF-8"), "{:n}", *(double*)stat.value).c_str());
+          str = fmt::format(std::locale("en_US.UTF-8"), "{:n}", *(double*)stat.value).c_str();
           break;
         case ImGuiStatType::Uint64:
-          ImGui::Text(fmt::format(std::locale("en_US.UTF-8"), "{:n}", *(uint64_t*)stat.value).c_str());
+          str = fmt::format(std::locale("en_US.UTF-8"), "{:n}", *(uint64_t*)stat.value).c_str();
           break;
         default:
           throw std::runtime_error("invalid statistic type");
       }
+      ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(str.c_str()).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
+      ImGui::Text("%s", str.c_str());
+      
       ImGui::NextColumn();
     }
   }
