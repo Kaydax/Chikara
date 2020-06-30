@@ -1788,8 +1788,8 @@ void Renderer::ImGuiFrame() {
     {ImGuiStatType::Float,  "FPS: ", &framerate, true},
     {ImGuiStatType::Uint64, "NPS: ", nps, true},
     {ImGuiStatType::Double, "Longest frame: ", &max_elapsed_time, true},
-    {ImGuiStatType::Uint64, "Notes rendered: ", &last_notes_shown_count, true},
-    {ImGuiStatType::Uint64, "Notes allocated: ", &notes_alloced, true},
+    {ImGuiStatType::Uint64, "Rendered: ", &last_notes_shown_count, true},
+    {ImGuiStatType::Uint64, "Allocated: ", &notes_alloced, true},
   };
 
   size_t longest_len = 0;
