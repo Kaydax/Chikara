@@ -298,6 +298,7 @@ public:
 
   float pre_time;
   double max_elapsed_time = 0;
+  bool first_frame = true;
 
   uint32_t current_frame_index;
 

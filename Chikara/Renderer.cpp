@@ -1653,7 +1653,10 @@ void Renderer::drawFrame(float time)
   current_frame = (current_frame + 1) % max_frames_in_flight;
 
   auto elapsed_time = std::chrono::duration<double, std::ratio<1>>(std::chrono::high_resolution_clock::now() - start_time).count();
-  max_elapsed_time = max(max_elapsed_time, elapsed_time);
+  if (!first_frame)
+    max_elapsed_time = max(max_elapsed_time, elapsed_time);
+  else
+    first_frame = false;
 }
 
 void Renderer::PrepareKeyboard() 
@@ -1805,29 +1808,23 @@ void Renderer::ImGuiFrame() {
   }
 
   ImGui::SetNextWindowPos(ImVec2(10.0f, 10.0f));
-  auto first_column_len = ImGui::CalcTextSize(longest_str).x;
-  auto second_column_len = 64.0f;
-  ImGui::SetNextWindowSize(ImVec2(first_column_len + second_column_len + 16.0f, 0.0f));
+  ImGui::SetNextWindowSize(ImVec2(192.0f, 0.0f));
   ImGui::Begin("stats", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMove |
     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoNav |
     ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing);
-  ImGui::Columns(2, nullptr, false);
-  ImGui::SetColumnWidth(0, first_column_len + 8.0f);
-  ImGui::SetColumnWidth(1, second_column_len + 8.0f);
   for (auto& stat : statistics) 
   {
     if(stat.enabled)
     {
       ImGui::Text(stat.name);
-      ImGui::NextColumn();
       std::string str;
       switch(stat.type)
       {
         case ImGuiStatType::Float:
-          str = fmt::format(std::locale("en_US.UTF-8"), "{:n}", *(float*)stat.value).c_str();
+          str = fmt::format(std::locale("en_US.UTF-8"), "{:0.3f}", *(float*)stat.value).c_str();
           break;
         case ImGuiStatType::Double:
-          str = fmt::format(std::locale("en_US.UTF-8"), "{:n}", *(double*)stat.value).c_str();
+          str = fmt::format(std::locale("en_US.UTF-8"), "{:0.3f}", *(double*)stat.value).c_str();
           break;
         case ImGuiStatType::Uint64:
           str = fmt::format(std::locale("en_US.UTF-8"), "{:n}", *(uint64_t*)stat.value).c_str();
@@ -1835,13 +1832,11 @@ void Renderer::ImGuiFrame() {
         default:
           throw std::runtime_error("invalid statistic type");
       }
-      ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(str.c_str()).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
+      ImGui::SameLine();
+      ImGui::SetCursorPosX(ImGui::GetWindowWidth() - ImGui::CalcTextSize(str.c_str()).x - ImGui::GetScrollX() - ImGui::GetStyle().ItemSpacing.x);
       ImGui::Text("%s", str.c_str());
-      
-      ImGui::NextColumn();
     }
   }
-  ImGui::Columns(1);
   auto n_played = fmt::format(std::locale("en_US.UTF-8"), "{:n}", *notes_played);
   auto count = fmt::format(std::locale("en_US.UTF-8"), "{:n}", *note_count);
   ImGui::Text((n_played + " / " + count).c_str());
