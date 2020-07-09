@@ -55,6 +55,7 @@ void Main::initWindow()
   glfwInit(); //Init glfw
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); //Set the glfw api to GLFW_NO_API because we are using Vulkan
   glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); //Change the ability to resize the window
+  //glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE); //Window Transparancy
   r.window = glfwCreateWindow(default_width, default_height, "Chikara", nullptr, nullptr); //Now we create the window
   glfwSetWindowUserPointer(r.window, &r);
   glfwSetFramebufferSizeCallback(r.window, r.framebufferResizeCallback);
@@ -114,18 +115,6 @@ void Main::mainLoop()
 
     glfwPollEvents();
     r.drawFrame(time);
-
-    //Output fps
-    ++frame_counter;
-    if(last_time + std::chrono::seconds(1) < timer.now())
-    {
-      last_time = timer.now();
-      fps = frame_counter;
-      frame_counter = 0;
-      //std::cout << std::endl << fps << " fps";
-      //std::string title = std::string("Chikara | FPS: ") + std::to_string(fps);
-      //glfwSetWindowTitle(r.window, title.c_str());
-    }
   }
 
   vkDeviceWaitIdle(r.device);

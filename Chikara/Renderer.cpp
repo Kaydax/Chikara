@@ -671,8 +671,14 @@ void Renderer::createGraphicsPipeline(const char* vert_spv, size_t vert_spv_leng
 
   //Color blending
   VkPipelineColorBlendAttachmentState color_blend_attachment = {};
+  color_blend_attachment.blendEnable = VK_TRUE;
+  color_blend_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+  color_blend_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+  color_blend_attachment.colorBlendOp = VK_BLEND_OP_ADD;
+  color_blend_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+  color_blend_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+  color_blend_attachment.alphaBlendOp = VK_BLEND_OP_ADD;
   color_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-  color_blend_attachment.blendEnable = VK_FALSE;
 
   VkPipelineColorBlendStateCreateInfo color_blending = {};
   color_blending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -1732,7 +1738,7 @@ void Renderer::ImGuiFrame() {
   // keyboard
   //printf("%d\n", white_key_count);
   ImDrawList* draw_list = ImGui::GetBackgroundDrawList();
-  ImGui::SetNextWindowBgAlpha(255);
+  ImGui::SetNextWindowBgAlpha(255.0f);
   
   // bar
   if(Config::GetConfig().rainbow_bar) 
@@ -1744,7 +1750,9 @@ void Renderer::ImGuiFrame() {
   } else {
     const auto bar_color = Config::GetConfig().bar_color;
     draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height - keyboard_height * 0.05),
-      ImVec2(window_width, window_height - keyboard_height), IM_COL32(bar_color.r * 256, bar_color.g * 256, bar_color.b * 256, 255));
+      ImVec2(window_width, window_height - keyboard_height), IM_COL32(bar_color.r * 255, bar_color.g * 255, bar_color.b * 255, 255));
+    draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height - keyboard_height * 0.03),
+                             ImVec2(window_width, window_height - keyboard_height), IM_COL32(bar_color.r * 255 / 2, bar_color.g * 255 / 2, bar_color.b * 255 / 2, 255));
   }
 
   // keyboard background
@@ -1856,7 +1864,7 @@ void Renderer::ImGuiFrame() {
       {
         ImGui::Checkbox("VSync", &Config::GetConfig().vsync);
         ImGui::Checkbox("Hide Overlapping Notes (only faster on overlap-heavy or sustain-heavy MIDIs)", &Config::GetConfig().note_hide);
-        ImGui::SliderFloat("Note Speed", &pre_time, 0.01, 10);
+        ImGui::SliderFloat("Note Speed", &pre_time, 10, 0.01);
         ImGui::Checkbox("Rainbow Bar", &Config::GetConfig().rainbow_bar);
         ImGui::ColorEdit3("Bar Color", &Config::GetConfig().bar_color.r, ImGuiColorEditFlags_RGB); // haha undefined behavior go Segmentation fault
         ImGui::EndTabItem();
@@ -2310,6 +2318,7 @@ void Renderer::initImGui() {
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
   io.IniFilename = nullptr;
   ImGui::StyleColorsDark();
+  //ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
 
   ImGui_ImplGlfw_InitForVulkan(window, true);
 

@@ -85,7 +85,7 @@ void main() {
     vtx_pos.x *= mix(1.0, blackWidth, black); //make thinner if black
     vtx_pos.x += xTable[noteKey];
     gl_Position = ubo.proj * ubo.view * ubo.model * vec4(vtx_pos, 0.0, 1.0);
-    fragColor = vec3(float(noteColor & 0xFF) / 256.0f, float((noteColor >> 8) & 0xFF) / 256.0f, float((noteColor >> 16) & 0xFF) / 256.0f);
+    fragColor = vec3(float(noteColor & 0xFF) / 255.0f, float((noteColor >> 8) & 0xFF) / 255.0f, float((noteColor >> 16) & 0xFF) / 255.0f);
     fragTexCoord = inTexCoord;
     vNoteSize = vec2(mix(1.0, blackWidth, black) / float(nWhiteKeys), noteEnd - noteStart);
     winWidth = ubo.width;

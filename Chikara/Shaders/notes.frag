@@ -21,7 +21,7 @@ void main() {
   }
 
   vec2 vUV = fragTexCoord;
-  float t = (sin(vUV.x * PI) + 1) / 2;
+  float t = (sin(vUV.x * PI) + 1) / 2.2;
   vec3 color = vec3(fragColor * t);
   float aspect = winHeight / winWidth;
 
