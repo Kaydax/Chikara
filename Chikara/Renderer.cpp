@@ -6,6 +6,8 @@
 #include <imgui_impl_vulkan.h>
 #include <fmt/locale.h>
 
+#include <fmt/format.h>
+
 #include "Renderer.h"
 #include "Main.h"
 #include "Midi.h"
@@ -357,7 +359,7 @@ void Renderer::createImageViews()
 
 #pragma region Render Pass
 
-void Renderer::createRenderPass(VkRenderPass* pass, bool has_depth, VkAttachmentLoadOp load_op, VkImageLayout initial_layout, VkImageLayout final_layout)
+void Renderer::createRenderPass(VkRenderPass* pass, bool has_depth, VkAttachmentLoadOp load_op, VkImageLayout initial_layout, VkImageLayout final_layout, VkAttachmentLoadOp depth_load_op, VkImageLayout depth_initial_layout, VkImageLayout depth_final_layout)
 {
   //Setup the color attachment
   VkAttachmentDescription color_attachment = {};
@@ -374,12 +376,12 @@ void Renderer::createRenderPass(VkRenderPass* pass, bool has_depth, VkAttachment
   if (has_depth) {
     depth_attachment.format = findDepthFormat();
     depth_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depth_attachment.loadOp = depth_load_op;
+    depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     depth_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depth_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    depth_attachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    depth_attachment.initialLayout = depth_initial_layout;
+    depth_attachment.finalLayout = depth_final_layout;
   }
 
   VkAttachmentReference color_attachment_ref = {};
@@ -1197,7 +1199,8 @@ void Renderer::copyBuffer(VkBuffer src_buffer, VkBuffer dst_buffer, VkDeviceSize
 void Renderer::createCommandBuffers()
 {
   //Allocate the command buffer
-  cmd_buffers.resize(swap_chain_framebuffers.size() * MAX_NOTES_MULT);
+  auto additional_pass_offset = swap_chain_framebuffers.size() * MAX_NOTES_MULT;
+  cmd_buffers.resize(additional_pass_offset * 2);
 
   VkCommandBufferAllocateInfo alloc_info = {};
   alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -1211,56 +1214,60 @@ void Renderer::createCommandBuffers()
   }
 
   //Start recording the command buffer
-  for (size_t swap_chain = 0; swap_chain < swap_chain_framebuffers.size(); swap_chain++)
+  for (int pass = 0; pass < 2; pass++)
   {
-    for (size_t note_buf_idx = 0; note_buf_idx < MAX_NOTES_MULT; note_buf_idx++)
+    for (size_t swap_chain = 0; swap_chain < swap_chain_framebuffers.size(); swap_chain++)
     {
-      VkCommandBufferBeginInfo begin_info = {};
-      begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-      if (vkBeginCommandBuffer(cmd_buffers[note_buf_idx + swap_chain * MAX_NOTES_MULT], &begin_info) != VK_SUCCESS)
+      for (size_t note_buf_idx = 0; note_buf_idx < MAX_NOTES_MULT; note_buf_idx++)
       {
-        throw std::runtime_error("VKERR: Failed to begin recording command buffer!");
-      }
+        VkCommandBufferBeginInfo begin_info = {};
+        begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-      //Start the render pass
-      VkRenderPassBeginInfo render_pass_info = {};
-      render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-      render_pass_info.renderPass = note_render_pass;
-      render_pass_info.framebuffer = swap_chain_framebuffers[swap_chain]; //Create a framebuffer for each swap chain image
-      render_pass_info.renderArea.offset = { 0, 0 };
-      render_pass_info.renderArea.extent = swap_chain_extent; //Render area defines where shader loads and stores take place. Anything outside this area are undefined, allowing for better performance
+        if (vkBeginCommandBuffer(cmd_buffers[additional_pass_offset + note_buf_idx + swap_chain * MAX_NOTES_MULT], &begin_info) != VK_SUCCESS)
+        {
+          throw std::runtime_error("VKERR: Failed to begin recording command buffer!");
+        }
 
-      std::array<VkClearValue, 2> clear_values = {};
-      clear_values[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
-      clear_values[1].depthStencil = { 1.0f, 0 };
+        //Start the render pass
+        VkRenderPassBeginInfo render_pass_info = {};
+        render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        render_pass_info.renderPass = pass ? note_render_pass : additional_note_render_pass;
+        render_pass_info.framebuffer = swap_chain_framebuffers[swap_chain]; //Create a framebuffer for each swap chain image
+        render_pass_info.renderArea.offset = { 0, 0 };
+        render_pass_info.renderArea.extent = swap_chain_extent; //Render area defines where shader loads and stores take place. Anything outside this area are undefined, allowing for better performance
 
-      render_pass_info.clearValueCount = static_cast<uint32_t>(clear_values.size());
-      render_pass_info.pClearValues = clear_values.data();
+        std::array<VkClearValue, 2> clear_values = {};
+        clear_values[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+        clear_values[1].depthStencil = { 1.0f, 0 };
 
-      auto idx = note_buf_idx + swap_chain * MAX_NOTES_MULT;
+        render_pass_info.clearValueCount = static_cast<uint32_t>(clear_values.size());
+        render_pass_info.pClearValues = clear_values.data();
 
-      //Now the render pass can begin
-      vkCmdBeginRenderPass(cmd_buffers[idx], &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+        auto idx = additional_pass_offset + note_buf_idx + swap_chain * MAX_NOTES_MULT;
 
-      vkCmdBindPipeline(cmd_buffers[idx], VK_PIPELINE_BIND_POINT_GRAPHICS, note_pipeline);
+        //Now the render pass can begin
+        vkCmdBeginRenderPass(cmd_buffers[idx], &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 
-      VkBuffer vertex_buffers[] = { note_vertex_buffer };
-      VkDeviceSize offsets[] = { 0 };
-      vkCmdBindVertexBuffers(cmd_buffers[idx], VERTEX_BUFFER_BIND_ID, 1, vertex_buffers, offsets);
-      vkCmdBindVertexBuffers(cmd_buffers[idx], INSTANCE_BUFFER_BIND_ID, 1, &note_instance_buffer, offsets);
-      vkCmdBindIndexBuffer(cmd_buffers[idx], note_index_buffer, 0, VK_INDEX_TYPE_UINT32);
-      vkCmdBindDescriptorSets(cmd_buffers[idx], VK_PIPELINE_BIND_POINT_GRAPHICS, note_pipeline_layout, 0, 1, &descriptor_sets[swap_chain], 0, nullptr);
+        vkCmdBindPipeline(cmd_buffers[idx], VK_PIPELINE_BIND_POINT_GRAPHICS, note_pipeline);
 
-      vkCmdDrawIndexed(cmd_buffers[idx], 6, MAX_NOTES_BASE * (note_buf_idx + 1), 0, 0, 0);
+        VkBuffer vertex_buffers[] = { note_vertex_buffer };
+        VkDeviceSize offsets[] = { 0 };
+        vkCmdBindVertexBuffers(cmd_buffers[idx], VERTEX_BUFFER_BIND_ID, 1, vertex_buffers, offsets);
+        vkCmdBindVertexBuffers(cmd_buffers[idx], INSTANCE_BUFFER_BIND_ID, 1, &note_instance_buffer, offsets);
+        vkCmdBindIndexBuffer(cmd_buffers[idx], note_index_buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindDescriptorSets(cmd_buffers[idx], VK_PIPELINE_BIND_POINT_GRAPHICS, note_pipeline_layout, 0, 1, &descriptor_sets[swap_chain], 0, nullptr);
 
-      vkCmdEndRenderPass(cmd_buffers[idx]);
+        vkCmdDrawIndexed(cmd_buffers[idx], 6, MAX_NOTES_BASE * (note_buf_idx + 1), 0, 0, 0);
 
-      if (vkEndCommandBuffer(cmd_buffers[idx]) != VK_SUCCESS)
-      {
-        throw std::runtime_error("VKERR: Failed to record command buffer!");
+        vkCmdEndRenderPass(cmd_buffers[idx]);
+
+        if (vkEndCommandBuffer(cmd_buffers[idx]) != VK_SUCCESS)
+        {
+          throw std::runtime_error("VKERR: Failed to record command buffer!");
+        }
       }
     }
+    additional_pass_offset = 0;
   }
 }
 
@@ -1314,6 +1321,34 @@ void Renderer::createSyncObjects()
 #pragma endregion
 
 #pragma region Drawing
+
+void Renderer::submitSingleCommandBuffer(VkCommandBuffer cmds)
+{
+  VkSubmitInfo submit_info = {};
+  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+  // no need for wait semaphores since only one command buffer can be run at a time due to these fences
+  // multiple command buffers aren't run at the same time because the note render passes share resources to save space
+  // sadly, this means that the full power of vulkan can't be taken advantage of...
+  submit_info.waitSemaphoreCount = 0;
+  submit_info.pWaitSemaphores = nullptr;
+  submit_info.pWaitDstStageMask = nullptr;
+  submit_info.commandBufferCount = 1;
+  submit_info.pCommandBuffers = &cmds;
+
+  submit_info.signalSemaphoreCount = 0;
+  submit_info.pSignalSemaphores = nullptr;
+
+  vkResetFences(device, 1, &in_flight_fences[current_frame]);
+
+  auto submit_res = vkQueueSubmit(graphics_queue, 1, &submit_info, in_flight_fences[current_frame]);
+  if (submit_res != VK_SUCCESS)
+  {
+    printf("%d\n", submit_res);
+    throw std::runtime_error("VKERR: Failed to submit draw to command buffer!");
+  }
+  vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
+}
 
 void Renderer::drawFrame(float time)
 {
@@ -1377,15 +1412,11 @@ void Renderer::drawFrame(float time)
   });
 
   // don't render overlaps
-  // should be an option after settings recode
 
   if(Config::GetConfig().note_hide != hide_notes)
   {
     hide_notes = Config::GetConfig().note_hide;
-    concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i)
-    {
-      notes_hidden[i] = 0;
-    });
+    memset(notes_hidden.data(), 0, notes_hidden.size() * sizeof(size_t));
   }
 
   if(hide_notes)
@@ -1445,14 +1476,16 @@ void Renderer::drawFrame(float time)
   for(auto hidden : notes_hidden)
     notes_shown_size -= hidden;
 
+  /*
   if(notes_shown_size > MAX_NOTES) 
   {
     MessageBoxA(NULL, "There's a note limit right now of 100 million notes onscreen at the same time.", "Sorry!", MB_ICONERROR);
     exit(1);
   }
+  */
 
-  vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
-  vkResetFences(device, 1, &in_flight_fences[current_frame]);
+  //vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
+  //vkResetFences(device, 1, &in_flight_fences[current_frame]);
 
   uint32_t img_index;
   VkResult result = vkAcquireNextImageKHR(device, swap_chain, UINT64_MAX, img_available_semaphore[current_frame], VK_NULL_HANDLE, &img_index);
@@ -1475,100 +1508,112 @@ void Renderer::drawFrame(float time)
   //Update the Uniform Buffer
   updateUniformBuffer(img_index, time);
 
+  size_t key_indices[256] = {};
+  size_t cur_offset = 0;
+  // yep, this iterates over the keys twice...
+  for (int i = 0; i < 256; i++)
+  {
+    if (g_sharp_table[i])
+    {
+      key_indices[i] = cur_offset;
+      cur_offset += notes_shown[i].Size() - notes_hidden[i];
+    }
+  }
+
+  for (int i = 0; i < 256; i++)
+  {
+    if (!g_sharp_table[i]) {
+      key_indices[i] = cur_offset;
+      cur_offset += notes_shown[i].Size() - notes_hidden[i];
+    }
+  }
+
   void* data;
   int note_cmd_buf = 0;
-  if(last_notes_shown_count > 0) 
-  {
-    vkMapMemory(device, note_instance_buffer_mem, 0, sizeof(InstanceData) * last_notes_shown_count, 0, &data);
-    if(last_notes_shown_count > notes_shown_size)
-      memset((char*)data + notes_shown_size * sizeof(InstanceData), 0, sizeof(InstanceData) * (last_notes_shown_count - notes_shown_size));
 
-    InstanceData* data_i = (InstanceData*)data;
-    //cout << endl << "Notes playing: " << notes_shown.size();
+  if (intermediate_data_i.size() < notes_shown_size) {
+    fmt::print("Resized intermediate instance buffer to {:n}\n", notes_shown_size);
+    intermediate_data_i.resize(notes_shown_size);
+  }
 
+  if (last_notes_shown_count > 0) {
     last_notes_shown_count = notes_shown_size;
-
-    size_t key_indices[256] = {};
-    size_t cur_offset = 0;
-
-    // yep, this iterates over the keys twice...
-    for(int i = 0; i < 256; i++) 
-    {
-      if(g_sharp_table[i]) 
-      {
-        key_indices[i] = cur_offset;
-        cur_offset += notes_shown[i].Size() - notes_hidden[i];
-      }
-    }
-
-    for(int i = 0; i < 256; i++) 
-    {
-      if (!g_sharp_table[i]) {
-        key_indices[i] = cur_offset;
-        cur_offset += notes_shown[i].Size() - notes_hidden[i];
-      }
-    }
 
     memset(key_color, 0xFFFFFFFF, sizeof(key_color));
 
-    concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i) 
-    {
-      auto& list = notes_shown[i];
-      for (auto x = notes_shown[i].Front(); x;)
+    concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i)
       {
-        Note n = x->data;
-        if(n.hidden) 
+        auto& list = notes_shown[i];
+        for (auto x = notes_shown[i].Front(); x;)
         {
-          if(time >= n.end) 
+          Note n = x->data;
+          if (n.hidden)
           {
+            if (time >= n.end)
+            {
+              auto next = x->next;
+              list.Delete(x);
+              x = next;
+            }
+            else {
+              if (time >= n.start)
+              {
+                if (key_color[n.key] == -1)
+                  key_color[n.key] = n.track & 0xF;
+              }
+              x = x->next;
+            }
+            continue;
+          }
+          if (time >= n.end)
+          {
+            //event_queue[i].push_back(MAKELONG(MAKEWORD((n->channel) | (8 << 4), n->key), MAKEWORD(n->velocity, 0)));
+            intermediate_data_i[key_indices[i]++] = { 0, 0, 0, 0 };
+            //delete n;
             auto next = x->next;
             list.Delete(x);
             x = next;
-          } else {
-            if(time >= n.start) 
+          }
+          else
+          {
+            if (time >= n.start)
             {
-              if(key_color[n.key] == -1)
+              if (key_color[n.key] == -1)
                 key_color[n.key] = n.track & 0xF;
             }
+            intermediate_data_i[key_indices[i]++] = { static_cast<float>(n.start), static_cast<float>(n.end), n.key, colors_packed[n.track & 0xF] };
             x = x->next;
           }
-          continue;
         }
-        if(time >= n.end)
-        {
-          //event_queue[i].push_back(MAKELONG(MAKEWORD((n->channel) | (8 << 4), n->key), MAKEWORD(n->velocity, 0)));
-          data_i[key_indices[i]++] = { 0, 0, 0, 0 };
-          //delete n;
-          auto next = x->next;
-          list.Delete(x);
-          x = next;
-        }
-        else
-        {
-          if(time >= n.start) 
-          {
-            if(key_color[n.key] == -1)
-              key_color[n.key] = n.track & 0xF;
-          }
-          data_i[key_indices[i]++] = { static_cast<float>(n.start), static_cast<float>(n.end), n.key, colors_packed[n.track & 0xF] };
-          x = x->next;
-        }
-      }
-    });
+      });
+  }
+  else {
+    last_notes_shown_count = notes_shown_size;
+  }
+  
+  size_t instances_left = notes_shown_size;
+  if (notes_shown_size == 0)
+    submitSingleCommandBuffer(cmd_buffers[img_index * MAX_NOTES_MULT]);
+  for (size_t i = 0; i < notes_shown_size; i += MAX_NOTES) {
+    size_t instances_processed = min(instances_left, MAX_NOTES);
+    vkMapMemory(device, note_instance_buffer_mem, 0, sizeof(InstanceData) * instances_processed, 0, &data);
+    memcpy(data, intermediate_data_i.data() + (notes_shown_size - instances_left), instances_processed * sizeof(InstanceData));
+    if (last_instances_processed > instances_processed)
+      memset((InstanceData*)data + instances_processed, 0, sizeof(InstanceData) * (last_instances_processed - instances_processed));
+    vkUnmapMemory(device, note_instance_buffer_mem);
 
-    for(int i = 0; i < MAX_NOTES_MULT; i++) 
+    for (int x = 0; x < MAX_NOTES_MULT; x++)
     {
-      if(notes_shown_size <= (MAX_NOTES_BASE * (i + 1))) 
+      if (instances_processed <= (MAX_NOTES_BASE * (x + 1)))
       {
-        note_cmd_buf = i;
+        note_cmd_buf = x;
         break;
       }
     }
 
-    //memcpy(data, data_v, (size_t)buffer_size);
-    vkUnmapMemory(device, note_instance_buffer_mem);
-  } else {
-    last_notes_shown_count = notes_shown_size;
+    submitSingleCommandBuffer(cmd_buffers[(i == 0 ? 0 : swap_chain_framebuffers.size() * MAX_NOTES_MULT) + note_cmd_buf + img_index * MAX_NOTES_MULT]);
+    instances_left -= instances_processed;
+    last_instances_processed = instances_processed;
   }
 
   // render imgui command buffers
@@ -1605,39 +1650,13 @@ void Renderer::drawFrame(float time)
     }
   }
 
-  //Submit to the command buffer
-  VkSubmitInfo submit_info = {};
-  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-  std::array<VkCommandBuffer, 2> command_buffers = { cmd_buffers[note_cmd_buf + img_index * MAX_NOTES_MULT], imgui_cmd_buffers[img_index] };
-
-  VkSemaphore wait_semaphores[] = { img_available_semaphore[current_frame] }; //The semaphores we are waiting for
-  VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT }; //Wait with writing colors until the image is available
-  submit_info.waitSemaphoreCount = 1;
-  submit_info.pWaitSemaphores = wait_semaphores;
-  submit_info.pWaitDstStageMask = wait_stages;
-  submit_info.commandBufferCount = static_cast<uint32_t>(command_buffers.size());
-  submit_info.pCommandBuffers = command_buffers.data();
-
-  VkSemaphore signal_semaphores[] = { render_fin_semaphore[current_frame] }; //What semaphores we signal once the cmd buffer finished execution
-  submit_info.signalSemaphoreCount = 1;
-  submit_info.pSignalSemaphores = signal_semaphores;
-
-  //vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
-  vkResetFences(device, 1, &in_flight_fences[current_frame]);
-
-  auto submit_res = vkQueueSubmit(graphics_queue, 1, &submit_info, in_flight_fences[current_frame]);
-  if (submit_res != VK_SUCCESS)
-  {
-    printf("%d\n", submit_res);
-    throw std::runtime_error("VKERR: Failed to submit draw to command buffer!");
-  }
+  submitSingleCommandBuffer(imgui_cmd_buffers[img_index]);
 
   //Presentation
   VkPresentInfoKHR present_info = {};
   present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
   present_info.waitSemaphoreCount = 1;
-  present_info.pWaitSemaphores = signal_semaphores;
+  present_info.pWaitSemaphores = &img_available_semaphore[current_frame];
 
   VkSwapchainKHR swap_chains[] = { swap_chain }; //An array of all our swap chains
   present_info.swapchainCount = 1;

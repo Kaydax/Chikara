@@ -29,8 +29,8 @@
 
 #pragma endregion
 
-#define MAX_NOTES_MULT 10000 // 100,000,000
-#define MAX_NOTES_BASE 10000
+#define MAX_NOTES_MULT 5000 // 25,000,000
+#define MAX_NOTES_BASE 5000
 #define MAX_NOTES MAX_NOTES_BASE * MAX_NOTES_MULT
 #define VERTEX_BUFFER_BIND_ID 0
 #define INSTANCE_BUFFER_BIND_ID 1
@@ -245,6 +245,10 @@ public:
   VkBuffer note_index_buffer;
   VkDeviceMemory note_index_buffer_mem;
   std::vector<VkFramebuffer> swap_chain_framebuffers;
+  std::vector<InstanceData> intermediate_data_i;
+
+  // render pass #1.1: additional note waterfall passes
+  VkRenderPass additional_note_render_pass;
 
   // render pass #2: imgui
   VkRenderPass imgui_render_pass;
@@ -280,6 +284,7 @@ public:
 
   std::array<CustomList<Note>, 256> notes_shown;
   size_t last_notes_shown_count;
+  size_t last_instances_processed = 0;
 
   std::array<std::array<bool, NOTE_DEPTH_BUFFER_SIZE>, 256> note_depth_buffer;
   std::array<size_t, 256> notes_hidden;
@@ -322,7 +327,8 @@ public:
   void createTextureImage();
   void createTextureImageView();
   void createTextureSampler();
-  void createRenderPass(VkRenderPass* pass, bool has_depth, VkAttachmentLoadOp load_op, VkImageLayout initial_layout, VkImageLayout final_layout);
+  void createRenderPass(VkRenderPass* pass, bool has_depth, VkAttachmentLoadOp load_op, VkImageLayout initial_layout, VkImageLayout final_layout,
+    VkAttachmentLoadOp depth_load_op = VK_ATTACHMENT_LOAD_OP_CLEAR, VkImageLayout depth_initial_layout = VK_IMAGE_LAYOUT_UNDEFINED, VkImageLayout depth_final_layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
   void createVertexBuffer(Vertex vertices[], size_t count, VkBuffer& buffer, VkDeviceMemory& buffer_mem);
   void createInstanceBuffer(VkDeviceSize size, VkBuffer& buffer, VkDeviceMemory& buffer_mem);
   void createIndexBuffer(uint32_t indices[], size_t count, VkBuffer& buffer, VkDeviceMemory& buffer_mem);
@@ -333,7 +339,7 @@ public:
   void createCommandBuffers();
   void createFramebuffers();
 
-  // render pass #2: keyboard
+  // render pass #2: imgui
   void createImGuiDescriptorPool();
   void createImGuiCommandBuffers();
   void createImGuiFramebuffers();
@@ -365,6 +371,8 @@ private:
   bool checkValidationLayerSupport();
   std::vector<const char*> getRequiredExtensions();
   bool hasStencilComponent(VkFormat format);
+
+  void submitSingleCommandBuffer(VkCommandBuffer cmds);
 
   VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
   VkFormat findDepthFormat();
