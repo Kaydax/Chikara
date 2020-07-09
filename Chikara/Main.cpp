@@ -70,6 +70,8 @@ void Main::initVulkan()
   r.createSwapChain();
   r.createImageViews();
   r.createRenderPass(&r.note_render_pass, true, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+  r.createRenderPass(&r.additional_note_render_pass, true, VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
   r.createDescriptorSetLayout();
   r.createGraphicsPipeline(notes_v, notes_v_length, notes_f, notes_f_length, r.note_render_pass, &r.note_pipeline_layout, &r.note_pipeline);
   r.createRenderPass(&r.imgui_render_pass, false, VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
@@ -150,6 +152,7 @@ void Main::cleanupSwapChain()
   vkDestroyPipeline(r.device, r.note_pipeline, nullptr);
   vkDestroyPipelineLayout(r.device, r.note_pipeline_layout, nullptr);
   vkDestroyRenderPass(r.device, r.note_render_pass, nullptr);
+  vkDestroyRenderPass(r.device, r.additional_note_render_pass, nullptr);
   vkDestroyRenderPass(r.device, r.imgui_render_pass, nullptr);
 
   for(size_t i = 0; i < r.swap_chain_img_views.size(); i++)
@@ -190,6 +193,8 @@ void Main::recreateSwapChain()
   r.createSwapChain();
   r.createImageViews();
   r.createRenderPass(&r.note_render_pass, true, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+  r.createRenderPass(&r.additional_note_render_pass, true, VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
   r.createGraphicsPipeline(notes_v, notes_v_length, notes_f, notes_f_length, r.note_render_pass, &r.note_pipeline_layout, &r.note_pipeline);
   r.createRenderPass(&r.imgui_render_pass, false, VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
   r.createDepthResources();
