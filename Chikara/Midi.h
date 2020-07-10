@@ -82,6 +82,7 @@ class BufferedReader
     ~BufferedReader();
     void seek(int64_t offset, int origin);
     void read(uint8_t* dst, size_t size);
+    uint32_t readVarLen();
     uint8_t readByte();
     void skipBytes(size_t size);
   private:

@@ -1757,7 +1757,6 @@ void Renderer::ImGuiFrame() {
   // keyboard
   //printf("%d\n", white_key_count);
   ImDrawList* draw_list = ImGui::GetBackgroundDrawList();
-  ImGui::SetNextWindowBgAlpha(255.0f);
   
   // bar
   if(Config::GetConfig().rainbow_bar) 
@@ -1792,7 +1791,7 @@ void Renderer::ImGuiFrame() {
       }
     }
   }
-  for(int i = 0; i <= 127; i++) 
+  for(int i = 0; i <= 127; i++)
   {
     if (g_sharp_table[i]) {
       if(key_color[i] == -1) 

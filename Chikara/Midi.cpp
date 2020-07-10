@@ -454,6 +454,21 @@ void BufferedReader::read(uint8_t* dst, size_t size)
   buffer_pos += size;
 }
 
+uint32_t BufferedReader::readVarLen()
+{
+  long n = 0;
+  while(true)
+  {
+    uint8_t curByte = readByte();
+    n = (n << 7) | (uint8_t)(curByte & 0x7F);
+    if((curByte & 0x80) == 0)
+    {
+      break;
+    }
+  }
+  return (uint32_t)n;
+}
+
 uint8_t BufferedReader::readByte()
 {
   uint8_t ret;
@@ -597,7 +612,7 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_not
           uint8_t key = reader->readByte();
           uint8_t vel = reader->readByte();
 
-          if (vel > 0)
+          if(vel > 0)
           {
             MidiEvent event;
             event.time = static_cast<float>(time);
@@ -627,14 +642,14 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_not
         }
         else
         {
-          reader->readByte();
-          if (reader->readByte() > 0) notes_parsed++;
+        reader->readByte();
+        if(reader->readByte() > 0) notes_parsed++;
         }
         break;
       case 0xA0: // Polyphonic Pressure
       case 0xB0: // Controller
       case 0xE0: // Pitch Wheel
-        if (stage_2)
+        if(stage_2)
         {
           MidiEvent event;
           event.time = static_cast<float>(time);
@@ -648,7 +663,7 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_not
         break;
       case 0xC0: // Program Change
       case 0xD0: // Channel Pressure
-        if (stage_2)
+        if(stage_2)
         {
           MidiEvent event;
           event.time = static_cast<float>(time);
