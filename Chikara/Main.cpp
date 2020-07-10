@@ -42,6 +42,7 @@ void Main::run(int argc, wchar_t** argv)
   r.note_count = &midi->note_count;
   r.notes_played = &midi->notes_played;
   r.nps = &midi->nps;
+  r.song_len = midi->song_len;
   // playback thread spawned in mainLoop to ensure it's synced with render
   midi->SpawnLoaderThread();
   initWindow(); //Setup everything for the window

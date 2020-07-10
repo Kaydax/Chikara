@@ -62,6 +62,7 @@ typedef enum {
   Float,
   Double,
   Uint64,
+  String,
 } ImGuiStatType;
 
 struct ImGuiStat
@@ -288,6 +289,8 @@ public:
 
   std::array<std::array<bool, NOTE_DEPTH_BUFFER_SIZE>, 256> note_depth_buffer;
   std::array<size_t, 256> notes_hidden;
+
+  double song_len = 0;
 
   float key_left[257];
   float key_widths[257];

@@ -145,6 +145,7 @@ class Midi
     uint64_t nps_counter = 0;
     uint64_t nps = 0;
     uint64_t notes_played = 0;
+    double song_len = 0.0;
   private:
     void loadMidi();
     void assertText(const char* text);
