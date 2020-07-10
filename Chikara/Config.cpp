@@ -27,6 +27,7 @@ void Config::Load(std::string& path) {
   note_hide = reader.GetBoolean("Chikara", "NoteHide", note_hide);
   rainbow_bar = reader.GetBoolean("Chikara", "RainbowBar", rainbow_bar);
   bar_color = GetVec3(reader, "Chikara", "BarColor", bar_color);
+  note_speed = GetFloat(reader, "Chikara", "NoteSpeed", note_speed);
 
   config_path = path;
 }
@@ -45,6 +46,7 @@ bool Config::Save() {
   WriteBool(ini, "NoteHide", note_hide);
   WriteBool(ini, "RainbowBar", rainbow_bar);
   WriteVec3(ini, "BarColor", bar_color);
+  WriteFloat(ini, "NoteSpeed", note_speed);
 
   fclose(ini);
 
@@ -59,6 +61,12 @@ glm::vec3 Config::GetVec3(INIReader& reader, const std::string& section, const s
   return result;
 }
 
+float Config::GetFloat(INIReader& reader, const std::string& section, const std::string& name, float& default_value)
+{
+  float result = reader.GetReal(section, name, default_value);
+  return result;
+}
+
 void Config::WriteBool(FILE* file, const std::string& name, bool b) {
   if (b)
     fprintf(file, "%s = true\n", name.c_str());
@@ -70,4 +78,9 @@ void Config::WriteVec3(FILE* file, const std::string& name, glm::vec3& value) {
   fprintf(file, "%sR = %f\n", name.c_str(), value.r);
   fprintf(file, "%sG = %f\n", name.c_str(), value.g);
   fprintf(file, "%sB = %f\n", name.c_str(), value.b);
+}
+
+void Config::WriteFloat(FILE* file, const std::string& name, float value)
+{
+  fprintf(file, "%s = %f", name.c_str(), value);
 }

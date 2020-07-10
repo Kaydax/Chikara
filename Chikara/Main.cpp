@@ -107,10 +107,10 @@ uint64_t fps = 0;
 void Main::mainLoop()
 {
   static auto start_time = std::chrono::high_resolution_clock::now() + std::chrono::seconds(1);
-  r.pre_time = 0.15;
   midi->SpawnPlaybackThread(start_time);
   while(!glfwWindowShouldClose(r.window))
   {
+    r.pre_time = Config::GetConfig().note_speed;
     auto current_time = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
     r.midi_renderer_time->store(time + r.pre_time);
