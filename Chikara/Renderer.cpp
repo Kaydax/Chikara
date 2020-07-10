@@ -1532,7 +1532,7 @@ void Renderer::drawFrame(float time)
   int note_cmd_buf = 0;
 
   if (intermediate_data_i.size() < notes_shown_size) {
-    fmt::print("Resized intermediate instance buffer to {:n}\n", notes_shown_size);
+    //fmt::print("Resized intermediate instance buffer to {:n}\n", notes_shown_size);
     intermediate_data_i.resize(notes_shown_size);
   }
 
