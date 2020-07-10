@@ -1753,6 +1753,13 @@ void Renderer::PrepareKeyboard()
   keyboard_height *= 0.55;
 }
 
+std::string format_seconds(double secs) {
+  if (secs >= 0)
+    return fmt::format("{}:{:04.1f}", (int)floor(secs / 60), fmod(secs, 60));
+  else
+    return fmt::format("-{}:{:04.1f}", (int)floor(-secs / 60), fmod(-secs, 60));
+}
+
 void Renderer::ImGuiFrame() {
   // keyboard
   //printf("%d\n", white_key_count);
@@ -1813,12 +1820,24 @@ void Renderer::ImGuiFrame() {
   size_t notes_alloced = 0;
   for (const auto& list : notes_shown)
     notes_alloced += list.Capacity();
+  auto time_text = format_seconds(min(midi_renderer_time->load(), song_len)) + " / " + format_seconds(song_len);
+
+  uint64_t nps = 0;
+  auto saved_notes_played = *notes_played; // avoid race conditions
+  notes_played_at_time.push_back(std::make_pair(midi_renderer_time->load(), saved_notes_played - last_notes_played));
+  last_notes_played = saved_notes_played;
+  while (!notes_played_at_time.empty() && notes_played_at_time.front().first < midi_renderer_time->load() - 1)
+    notes_played_at_time.pop_front();
+  for (auto x : notes_played_at_time)
+    nps += x.second;
+
   const ImGuiStat statistics[] = {
-    {ImGuiStatType::Float,  "FPS: ", &framerate, true},
-    {ImGuiStatType::Uint64, "NPS: ", nps, true},
-    {ImGuiStatType::Double, "Longest frame: ", &max_elapsed_time, true},
-    {ImGuiStatType::Uint64, "Rendered: ", &last_notes_shown_count, true},
-    {ImGuiStatType::Uint64, "Allocated: ", &notes_alloced, true},
+    {ImGuiStatType::String, "Time:", &time_text, true},
+    {ImGuiStatType::Float,  "FPS:", &framerate, true},
+    {ImGuiStatType::Uint64, "NPS:", &nps, true},
+    {ImGuiStatType::Double, "Longest frame:", &max_elapsed_time, true},
+    {ImGuiStatType::Uint64, "Rendered:", &last_notes_shown_count, true},
+    {ImGuiStatType::Uint64, "Allocated:", &notes_alloced, true},
   };
 
   size_t longest_len = 0;
@@ -1854,6 +1873,9 @@ void Renderer::ImGuiFrame() {
           break;
         case ImGuiStatType::Uint64:
           str = fmt::format(std::locale("en_US.UTF-8"), "{:n}", *(uint64_t*)stat.value).c_str();
+          break;
+        case ImGuiStatType::String:
+          str = *(std::string*)stat.value;
           break;
         default:
           throw std::runtime_error("invalid statistic type");

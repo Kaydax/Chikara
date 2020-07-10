@@ -165,6 +165,9 @@ void Midi::loadMidi()
     uint32_t* track_tempo_index = new uint32_t[track_count];
     for(int i = 0; i < track_count; i++) track_tempo_index[i] = 0;
 
+    double tick_len = 500.0 / ppq; // 120 bpm
+    uint64_t last_tempo_change = 0;
+
     while(t < tempo_count)
     {
       int min = -1;
@@ -186,9 +189,26 @@ void Midi::loadMidi()
         std::cout << "Broke\n";
         break;
       }
-      tempo_array[t++] = parse_tracks[min]->tempo_events[track_tempo_index[min]];
+      auto tempo = parse_tracks[min]->tempo_events[track_tempo_index[min]];
+      tempo_array[t++] = tempo;
+      auto tick_delta = tempo.pos - last_tempo_change;
+      last_tempo_change = tempo.pos;
+      song_len += tick_delta * tick_len;
+      tick_len = (double)tempo.tempo / (double)ppq / 1000.0;
       track_tempo_index[min]++;
     }
+
+    uint64_t max_tick = 0;
+    for (int i = 0; i < track_count; i++) {
+      auto track = parse_tracks[i];
+      if (track->tick_time > max_tick)
+        max_tick = track->tick_time;
+    }
+    auto tick_delta = max_tick - last_tempo_change;
+    song_len += tick_delta * tick_len;
+
+    song_len /= 1000.0;
+    printf("midi time %f seconds\n", song_len);
 
     uint64_t tick_time = 0;
     for(int i = 0; i < track_count; i++) delete parse_tracks[i];
@@ -349,17 +369,7 @@ void Midi::PlaybackThread()
         break;
       }
       if((msg & 0xf0) == 0x90 && (msg & 0xff0000) != 0)
-      {
         notes_played++;
-
-        ++nps_counter;
-        if(last_time + std::chrono::seconds(1) < timer.now())
-        {
-          last_time = timer.now();
-          nps = nps_counter;
-          nps_counter = 0;
-        }
-      }
       KDMAPI::SendDirectData(msg);
     }
     if (stop_requested)
