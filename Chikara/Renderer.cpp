@@ -1822,10 +1822,20 @@ void Renderer::ImGuiFrame() {
   for (const auto& list : notes_shown)
     notes_alloced += list.Capacity();
   auto time_text = format_seconds(min(midi_renderer_time->load(), song_len)) + " / " + format_seconds(song_len);
+
+  uint64_t nps = 0;
+  auto saved_notes_played = *notes_played; // avoid race conditions
+  notes_played_at_time.push_back(std::make_pair(midi_renderer_time->load(), saved_notes_played - last_notes_played));
+  last_notes_played = saved_notes_played;
+  while (!notes_played_at_time.empty() && notes_played_at_time.front().first < midi_renderer_time->load() - 1)
+    notes_played_at_time.pop_front();
+  for (auto x : notes_played_at_time)
+    nps += x.second;
+
   const ImGuiStat statistics[] = {
     {ImGuiStatType::String, "Time:", &time_text, true},
     {ImGuiStatType::Float,  "FPS:", &framerate, true},
-    {ImGuiStatType::Uint64, "NPS:", nps, true},
+    {ImGuiStatType::Uint64, "NPS:", &nps, true},
     {ImGuiStatType::Double, "Longest frame:", &max_elapsed_time, true},
     {ImGuiStatType::Uint64, "Rendered:", &last_notes_shown_count, true},
     {ImGuiStatType::Uint64, "Allocated:", &notes_alloced, true},

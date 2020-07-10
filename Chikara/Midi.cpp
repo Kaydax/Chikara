@@ -369,17 +369,7 @@ void Midi::PlaybackThread()
         break;
       }
       if((msg & 0xf0) == 0x90 && (msg & 0xff0000) != 0)
-      {
         notes_played++;
-
-        ++nps_counter;
-        if(last_time + std::chrono::seconds(1) < timer.now())
-        {
-          last_time = timer.now();
-          nps = nps_counter;
-          nps_counter = 0;
-        }
-      }
       KDMAPI::SendDirectData(msg);
     }
     if (stop_requested)

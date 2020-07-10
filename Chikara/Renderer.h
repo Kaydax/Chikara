@@ -213,7 +213,8 @@ public:
   std::atomic<float>* midi_renderer_time;
   uint64_t* note_count;
   uint64_t* notes_played;
-  uint64_t* nps;
+  std::list<std::pair<double, int>> notes_played_at_time;
+  size_t last_notes_played = 0;
   GLFWwindow* window;
   VkInstance inst;
   VkDebugUtilsMessengerEXT debug_msg;
