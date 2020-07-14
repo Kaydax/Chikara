@@ -1932,6 +1932,7 @@ void Renderer::ImGuiFrame() {
           MAKE_LICENSE_TREE(readerwriterqueue);
           MAKE_LICENSE_TREE(stb);
           MAKE_LICENSE_TREE(inih);
+          MAKE_LICENSE_TREE(discordrpc);
 
           ImGui::TreePop();
         }
