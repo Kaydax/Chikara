@@ -54,19 +54,19 @@ void Main::run(int argc, wchar_t** argv)
   // playback thread spawned in mainLoop to ensure it's synced with render
   //printf(file_name);
   midi->SpawnLoaderThread();
-  initWindow(); //Setup everything for the window
+  initWindow(argv); //Setup everything for the window
   initVulkan(); //Setup everything for Vulkan
   mainLoop(argv); //The main loop for the application
   cleanup(); //Cleanup everything because we closed the application
 }
 
-void Main::initWindow()
+void Main::initWindow(wchar_t** argv)
 {
   glfwInit(); //Init glfw
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); //Set the glfw api to GLFW_NO_API because we are using Vulkan
   glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); //Change the ability to resize the window
   //glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE); //Window Transparancy
-  r.window = glfwCreateWindow(default_width, default_height, "Chikara", nullptr, nullptr); //Now we create the window
+  r.window = glfwCreateWindow(default_width, default_height, std::string("Chikara | " + u.GetFileName(argv[1])).c_str(), nullptr, nullptr); //Now we create the window
   glfwSetWindowUserPointer(r.window, &r);
   glfwSetFramebufferSizeCallback(r.window, r.framebufferResizeCallback);
 }
