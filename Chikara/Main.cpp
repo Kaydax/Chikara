@@ -1,6 +1,11 @@
 #include "Main.h"
 #include "KDMAPI.h"
 #include "Config.h"
+#include "Utils.h"
+
+#include <inttypes.h>
+#include <fmt/locale.h>
+#include <fmt/format.h>
 
 // msvc complains about narrowing conversion with bin2c
 #pragma warning(push)
@@ -12,6 +17,7 @@
 
 Renderer r;
 Midi* midi;
+Utils u;
 
 Vertex instanced_quad[] {
   { {0,1}, {0,1} },
@@ -35,6 +41,9 @@ void Main::run(int argc, wchar_t** argv)
   auto config_path = Config::GetConfigPath();
   Config::GetConfig().Load(config_path);
   KDMAPI::Init();
+  std::cout << "Loading " << u.GetFileName(argv[1]) << std::endl;
+  std::cout << "RPC Enabled: " << Config::GetConfig().discord_rpc << std::endl;
+  if(Config::GetConfig().discord_rpc) u.InitDiscord();
   midi = new Midi(argv[1]);
   r.note_event_buffer = midi->note_event_buffer;
   r.midi_renderer_time = &midi->renderer_time;
@@ -43,10 +52,11 @@ void Main::run(int argc, wchar_t** argv)
   r.notes_played = &midi->notes_played;
   r.song_len = midi->song_len;
   // playback thread spawned in mainLoop to ensure it's synced with render
+  //printf(file_name);
   midi->SpawnLoaderThread();
   initWindow(); //Setup everything for the window
   initVulkan(); //Setup everything for Vulkan
-  mainLoop(); //The main loop for the application
+  mainLoop(argv); //The main loop for the application
   cleanup(); //Cleanup everything because we closed the application
 }
 
@@ -74,7 +84,7 @@ void Main::initVulkan()
   r.createRenderPass(&r.additional_note_render_pass, true, VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
     VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
   r.createDescriptorSetLayout();
-  r.createGraphicsPipeline(notes_v, notes_v_length, notes_f, notes_f_length, r.note_render_pass, &r.note_pipeline_layout, &r.note_pipeline);
+  r.createGraphicsPipeline((const char*)notes_v, notes_v_length, (const char*)notes_f, notes_f_length, r.note_render_pass, &r.note_pipeline_layout, &r.note_pipeline);
   r.createRenderPass(&r.imgui_render_pass, false, VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
   r.createPipelineCache();
   r.createCommandPool(&r.cmd_pool, 0);
@@ -104,10 +114,17 @@ auto last_time = timer.now();
 uint64_t frame_counter = 0;
 uint64_t fps = 0;
 
-void Main::mainLoop()
+void Main::mainLoop(wchar_t** argv)
 {
   static auto start_time = std::chrono::high_resolution_clock::now() + std::chrono::seconds(1);
+
+  long long start = (std::chrono::system_clock::now().time_since_epoch() + std::chrono::seconds(1)) / std::chrono::milliseconds(1);
+  long long end_time = (std::chrono::system_clock::now().time_since_epoch() + std::chrono::seconds(1) + std::chrono::seconds((long long)midi->song_len)) / std::chrono::milliseconds(1);
   midi->SpawnPlaybackThread(start_time);
+  char buffer[256];
+  sprintf(buffer, "Note Count: %s", fmt::format(std::locale("en_US.UTF-8"), "{:n}", midi->note_count));
+  if(Config::GetConfig().discord_rpc) 
+    u.UpdatePresence(buffer, "Playing: ", u.GetFileName(argv[1]), (uint64_t)start, (uint64_t)end_time);
   while(!glfwWindowShouldClose(r.window))
   {
     r.pre_time = Config::GetConfig().note_speed;
@@ -184,7 +201,7 @@ void Main::recreateSwapChain()
   r.createRenderPass(&r.note_render_pass, true, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
   r.createRenderPass(&r.additional_note_render_pass, true, VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
     VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-  r.createGraphicsPipeline(notes_v, notes_v_length, notes_f, notes_f_length, r.note_render_pass, &r.note_pipeline_layout, &r.note_pipeline);
+  r.createGraphicsPipeline((const char*)notes_v, notes_v_length, (const char*)notes_f, notes_f_length, r.note_render_pass, &r.note_pipeline_layout, &r.note_pipeline);
   r.createRenderPass(&r.imgui_render_pass, false, VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
   r.createDepthResources();
   r.createFramebuffers();
@@ -247,6 +264,7 @@ void Main::cleanup()
   glfwDestroyWindow(r.window);
 
   glfwTerminate(); //Now we terminate
+  u.destroyDiscord();
 }
 
 #pragma endregion

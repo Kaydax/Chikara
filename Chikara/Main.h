@@ -9,7 +9,7 @@ class Main
   private:
     void initWindow();
     void initVulkan();
-    void mainLoop();
+    void mainLoop(wchar_t** argv);
     void cleanupSwapChain();
     void cleanup();
 };

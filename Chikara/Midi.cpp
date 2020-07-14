@@ -464,21 +464,6 @@ void BufferedReader::read(uint8_t* dst, size_t size)
   buffer_pos += size;
 }
 
-uint32_t BufferedReader::readVarLen()
-{
-  long n = 0;
-  while(true)
-  {
-    uint8_t curByte = readByte();
-    n = (n << 7) | (uint8_t)(curByte & 0x7F);
-    if((curByte & 0x80) == 0)
-    {
-      break;
-    }
-  }
-  return (uint32_t)n;
-}
-
 uint8_t BufferedReader::readByte()
 {
   uint8_t ret;
@@ -713,6 +698,22 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_not
               case 0x05: // Lyric
               case 0x06: // Marker
               case 0x07: // Cue point
+              case 0x0A:
+              {
+                uint8_t* data = new uint8_t[val];
+                for(int i = 0; i < val; i++) data[i] = reader->readByte();
+                if(command == 0x0A && (val == 8 || val == 12) && data[0] == 0x00 && data[1] == 0x0F && (data[2] < 16 || data[2] == 0x7F) && data[3] == 0)
+                {
+                  if(val == 8)
+                  {
+                    //double delta, byte channel, byte r, byte g, byte b, byte a
+                    break;
+                  }
+                  //double delta, byte r, byte g, byte b, byte a, byte r2, byte g2, byte b2, byte a2
+                  break;
+                }
+                break;
+              }
               case 0x7F: // Sequencer-specific information
                 reader->skipBytes(val);
                 break;
