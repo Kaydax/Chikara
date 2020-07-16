@@ -1,8 +1,8 @@
 #include "Utils.h"
 
-std::string Utils::GetFileName(std::filesystem::path file_path)
+std::wstring Utils::GetFileName(std::filesystem::path file_path)
 {
-  return std::filesystem::path(file_path).filename().string();
+  return std::filesystem::path(file_path).filename().wstring();
 }
 
 static void handleDiscordReady(const DiscordUser* connectedUser)
@@ -48,7 +48,12 @@ void Utils::UpdatePresence(const char* state, const char* details, std::string f
   Discord_UpdatePresence(&discordPresence);
 }
 
-void Utils::destroyDiscord()
+void Utils::DestroyDiscord()
 {
   Discord_Shutdown();
+}
+
+std::string Utils::wstringToUtf8(std::wstring str) {
+  std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
+  return conv.to_bytes(str);
 }

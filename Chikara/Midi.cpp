@@ -287,8 +287,8 @@ void Midi::LoaderThread()
   double seconds = -1;
   uint64_t time = 0;
   bool all_ended = false;
+  bool* tracks_ended = new bool[track_count];
   while (true) {
-    bool* tracks_ended = new bool[track_count];
     memset(tracks_ended, 0, track_count);
     while (seconds < renderer_time.load() + 10.0f)
     {
@@ -333,10 +333,10 @@ void Midi::LoaderThread()
       if (all_ended)
         break;
     }
-    delete[] tracks_ended;
     if (all_ended)
       break;
   }
+  delete[] tracks_ended;
   misc_events.enqueue({ static_cast<float>(seconds), PLAYBACK_TERMINATE_EVENT });
   printf("\nloader thread exiting\n");
 }

@@ -17,7 +17,6 @@
 
 Renderer r;
 Midi* midi;
-Utils u;
 
 Vertex instanced_quad[] {
   { {0,1}, {0,1} },
@@ -41,9 +40,10 @@ void Main::run(int argc, wchar_t** argv)
   auto config_path = Config::GetConfigPath();
   Config::GetConfig().Load(config_path);
   KDMAPI::Init();
-  std::cout << "Loading " << u.GetFileName(argv[1]) << std::endl;
+  SetConsoleOutputCP(65001);
+  fmt::print("Loading {}\n", Utils::wstringToUtf8(Utils::GetFileName(argv[1])));
   std::cout << "RPC Enabled: " << Config::GetConfig().discord_rpc << std::endl;
-  if(Config::GetConfig().discord_rpc) u.InitDiscord();
+  if(Config::GetConfig().discord_rpc) Utils::InitDiscord();
   midi = new Midi(argv[1]);
   r.note_event_buffer = midi->note_event_buffer;
   r.midi_renderer_time = &midi->renderer_time;
@@ -66,7 +66,8 @@ void Main::initWindow(wchar_t** argv)
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); //Set the glfw api to GLFW_NO_API because we are using Vulkan
   glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); //Change the ability to resize the window
   //glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE); //Window Transparancy
-  r.window = glfwCreateWindow(default_width, default_height, std::string("Chikara | " + u.GetFileName(argv[1])).c_str(), nullptr, nullptr); //Now we create the window
+  auto filename = Utils::wstringToUtf8(Utils::GetFileName(argv[1]));
+  r.window = glfwCreateWindow(default_width, default_height, std::string("Chikara | " + filename).c_str(), nullptr, nullptr); //Now we create the window
   glfwSetWindowUserPointer(r.window, &r);
   glfwSetFramebufferSizeCallback(r.window, r.framebufferResizeCallback);
 }
@@ -121,10 +122,14 @@ void Main::mainLoop(wchar_t** argv)
   long long start = (std::chrono::system_clock::now().time_since_epoch() + std::chrono::seconds(1)) / std::chrono::milliseconds(1);
   long long end_time = (std::chrono::system_clock::now().time_since_epoch() + std::chrono::seconds(1) + std::chrono::seconds((long long)midi->song_len)) / std::chrono::milliseconds(1);
   midi->SpawnPlaybackThread(start_time);
+  /*
   char buffer[256];
   sprintf(buffer, "Note Count: %s", fmt::format(std::locale("en_US.UTF-8"), "{:n}", midi->note_count));
-  if(Config::GetConfig().discord_rpc) 
-    u.UpdatePresence(buffer, "Playing: ", u.GetFileName(argv[1]), (uint64_t)start, (uint64_t)end_time);
+  */
+  if (Config::GetConfig().discord_rpc) {
+    auto rpc_text = fmt::format(std::locale("en_US.UTF-8"), "Note Count: {:n}", midi->note_count);
+    Utils::UpdatePresence(rpc_text.c_str(), "Playing: ", Utils::wstringToUtf8(Utils::GetFileName(argv[1])), (uint64_t)start, (uint64_t)end_time);
+  }
   while(!glfwWindowShouldClose(r.window))
   {
     r.pre_time = Config::GetConfig().note_speed;
@@ -264,7 +269,7 @@ void Main::cleanup()
   glfwDestroyWindow(r.window);
 
   glfwTerminate(); //Now we terminate
-  u.destroyDiscord();
+  Utils::DestroyDiscord();
 }
 
 #pragma endregion

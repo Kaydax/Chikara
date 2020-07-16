@@ -1487,27 +1487,6 @@ void Renderer::drawFrame(float time)
   //vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
   //vkResetFences(device, 1, &in_flight_fences[current_frame]);
 
-  uint32_t img_index;
-  VkResult result = vkAcquireNextImageKHR(device, swap_chain, UINT64_MAX, img_available_semaphore[current_frame], VK_NULL_HANDLE, &img_index);
-
-  if(result == VK_ERROR_OUT_OF_DATE_KHR)
-  {
-    m.recreateSwapChain();
-    return;
-  } else if(result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-    throw std::runtime_error("VKERR: Failed to acquire swap chain image!");
-  }
-
-  //Check if a previous frame is using this image (i.e. there is its fence to wait on)
-  if(imgs_in_flight[img_index] != VK_NULL_HANDLE)
-    vkWaitForFences(device, 1, &imgs_in_flight[img_index], VK_TRUE, UINT64_MAX);
-
-  //Mark the image as now being in use by this frame
-  imgs_in_flight[img_index] = imgs_in_flight[current_frame];
-
-  //Update the Uniform Buffer
-  updateUniformBuffer(img_index, time);
-
   size_t key_indices[256] = {};
   size_t cur_offset = 0;
   // yep, this iterates over the keys twice...
@@ -1590,10 +1569,35 @@ void Renderer::drawFrame(float time)
   else {
     last_notes_shown_count = notes_shown_size;
   }
+
+  uint32_t img_index;
+  VkResult result = vkAcquireNextImageKHR(device, swap_chain, UINT64_MAX, img_available_semaphore[current_frame], VK_NULL_HANDLE, &img_index);
+
+  if (result == VK_ERROR_OUT_OF_DATE_KHR)
+  {
+    m.recreateSwapChain();
+    return;
+  }
+  else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+    throw std::runtime_error("VKERR: Failed to acquire swap chain image!");
+  }
+
+  //Check if a previous frame is using this image (i.e. there is its fence to wait on)
+  if (imgs_in_flight[img_index] != VK_NULL_HANDLE)
+    vkWaitForFences(device, 1, &imgs_in_flight[img_index], VK_TRUE, UINT64_MAX);
+
+  //Mark the image as now being in use by this frame
+  imgs_in_flight[img_index] = imgs_in_flight[current_frame];
+
+  //Update the Uniform Buffer
+  updateUniformBuffer(img_index, time);
+
+  vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
   
+  VkCommandBuffer last_note_cmdbuf = nullptr; // used to submit a single note draw command buffer at the same time as the imgui one
   size_t instances_left = notes_shown_size;
   if (notes_shown_size == 0)
-    submitSingleCommandBuffer(cmd_buffers[img_index * MAX_NOTES_MULT]);
+    last_note_cmdbuf = cmd_buffers[img_index * MAX_NOTES_MULT];
   for (size_t i = 0; i < notes_shown_size; i += MAX_NOTES) {
     size_t instances_processed = min(instances_left, MAX_NOTES);
     vkMapMemory(device, note_instance_buffer_mem, 0, sizeof(InstanceData) * instances_processed, 0, &data);
@@ -1611,12 +1615,17 @@ void Renderer::drawFrame(float time)
       }
     }
 
-    submitSingleCommandBuffer(cmd_buffers[(i == 0 ? 0 : swap_chain_framebuffers.size() * MAX_NOTES_MULT) + note_cmd_buf + img_index * MAX_NOTES_MULT]);
     instances_left -= instances_processed;
     last_instances_processed = instances_processed;
+    auto cmd_buf = cmd_buffers[(i == 0 ? 0 : swap_chain_framebuffers.size() * MAX_NOTES_MULT) + note_cmd_buf + img_index * MAX_NOTES_MULT];
+    if (instances_left == 0)
+      last_note_cmdbuf = cmd_buf;
+    else
+      submitSingleCommandBuffer(cmd_buf);
   }
 
   // render imgui command buffers
+  // TODO: this can be done at the same time as the above block, but how can that be done efficiently?
   ImGui_ImplVulkan_NewFrame();
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
@@ -1650,13 +1659,38 @@ void Renderer::drawFrame(float time)
     }
   }
 
-  submitSingleCommandBuffer(imgui_cmd_buffers[img_index]);
+  //Submit to the command buffer
+  VkSubmitInfo submit_info = {};
+  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+  std::array<VkCommandBuffer, 2> command_buffers = { last_note_cmdbuf, imgui_cmd_buffers[img_index] };
+
+  VkSemaphore wait_semaphores[] = { img_available_semaphore[current_frame] }; //The semaphores we are waiting for
+  VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT }; //Wait with writing colors until the image is available
+  submit_info.waitSemaphoreCount = 1;
+  submit_info.pWaitSemaphores = wait_semaphores;
+  submit_info.pWaitDstStageMask = wait_stages;
+  submit_info.commandBufferCount = static_cast<uint32_t>(command_buffers.size());
+  submit_info.pCommandBuffers = command_buffers.data();
+
+  submit_info.signalSemaphoreCount = 1;
+  submit_info.pSignalSemaphores = &render_fin_semaphore[current_frame];
+
+  //vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
+  vkResetFences(device, 1, &in_flight_fences[current_frame]);
+
+  auto submit_res = vkQueueSubmit(graphics_queue, 1, &submit_info, in_flight_fences[current_frame]);
+  if (submit_res != VK_SUCCESS)
+  {
+    printf("%d\n", submit_res);
+    throw std::runtime_error("VKERR: Failed to submit draw to command buffer!");
+  }
 
   //Presentation
   VkPresentInfoKHR present_info = {};
   present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
   present_info.waitSemaphoreCount = 1;
-  present_info.pWaitSemaphores = &img_available_semaphore[current_frame];
+  present_info.pWaitSemaphores = &render_fin_semaphore[current_frame];
 
   VkSwapchainKHR swap_chains[] = { swap_chain }; //An array of all our swap chains
   present_info.swapchainCount = 1;
