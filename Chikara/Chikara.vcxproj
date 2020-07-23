@@ -21,6 +21,7 @@
   <ItemGroup>
     <None Include="packages.config" />
     <None Include="Shaders\notes.frag" />
+    <None Include="Shaders\notes.geom" />
     <None Include="Shaders\notes.vert" />
   </ItemGroup>
   <ItemGroup>
@@ -226,10 +227,10 @@
       <Message>Compiling shaders...</Message>
     </CustomBuildStep>
     <CustomBuildStep>
-      <Outputs>$(MSBuildProjectDirectory)\shaders\notes_f.h;$(MSBuildProjectDirectory)\shaders\notes_v.h;%(Outputs)</Outputs>
+      <Outputs>$(MSBuildProjectDirectory)\shaders\notes_v.h;$(MSBuildProjectDirectory)\shaders\notes_f.h;$(MSBuildProjectDirectory)\shaders\notes_g.h;%(Outputs)</Outputs>
     </CustomBuildStep>
     <CustomBuildStep>
-      <Inputs>$(MSBuildProjectDirectory)\shaders\notes.frag;$(MSBuildProjectDirectory)\shaders\notes.vert;%(Inputs)</Inputs>
+      <Inputs>$(MSBuildProjectDirectory)\shaders\notes.vert;$(MSBuildProjectDirectory)\shaders\notes.frag;$(MSBuildProjectDirectory)\shaders\notes.geom;%(Inputs)</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

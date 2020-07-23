@@ -30,6 +30,9 @@
     <None Include="Shaders\notes.vert">
       <Filter>Shader Files</Filter>
     </None>
+    <None Include="Shaders\notes.geom">
+      <Filter>Shader Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp">

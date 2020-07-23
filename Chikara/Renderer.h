@@ -132,9 +132,9 @@ struct Vertex
 };
 
 // will probably never be used, but consistency is good
-#define INSTANCE_ATTRIB_COUNT 4
+#define NOTE_ATTRIB_COUNT 4
 
-struct InstanceData {
+struct NoteData {
   float start;
   float end;
   int key;
@@ -143,8 +143,8 @@ struct InstanceData {
   static VkVertexInputBindingDescription getBindingDescription()
   {
     VkVertexInputBindingDescription binding_description = {};
-    binding_description.binding = INSTANCE_BUFFER_BIND_ID;
-    binding_description.stride = sizeof(InstanceData);
+    binding_description.binding = VERTEX_BUFFER_BIND_ID;
+    binding_description.stride = sizeof(NoteData);
     binding_description.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
 
     return binding_description;
@@ -153,26 +153,26 @@ struct InstanceData {
   static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions()
   {
     // this will always be appended to Vertex, so locations are offset
-    std::array<VkVertexInputAttributeDescription, INSTANCE_ATTRIB_COUNT> attrib_descriptions = {};
-    attrib_descriptions[0].binding = INSTANCE_BUFFER_BIND_ID;
-    attrib_descriptions[0].location = VERTEX_ATTRIB_COUNT + 0;
+    std::array<VkVertexInputAttributeDescription, NOTE_ATTRIB_COUNT> attrib_descriptions = {};
+    attrib_descriptions[0].binding = VERTEX_BUFFER_BIND_ID;
+    attrib_descriptions[0].location = 0;
     attrib_descriptions[0].format = VK_FORMAT_R32_SFLOAT;
-    attrib_descriptions[0].offset = offsetof(InstanceData, start);
+    attrib_descriptions[0].offset = offsetof(NoteData, start);
 
-    attrib_descriptions[1].binding = INSTANCE_BUFFER_BIND_ID;
-    attrib_descriptions[1].location = VERTEX_ATTRIB_COUNT + 1;
+    attrib_descriptions[1].binding = VERTEX_BUFFER_BIND_ID;
+    attrib_descriptions[1].location = 1;
     attrib_descriptions[1].format = VK_FORMAT_R32_SFLOAT;
-    attrib_descriptions[1].offset = offsetof(InstanceData, end);
+    attrib_descriptions[1].offset = offsetof(NoteData, end);
 
-    attrib_descriptions[2].binding = INSTANCE_BUFFER_BIND_ID;
-    attrib_descriptions[2].location = VERTEX_ATTRIB_COUNT + 2;
+    attrib_descriptions[2].binding = VERTEX_BUFFER_BIND_ID;
+    attrib_descriptions[2].location = 2;
     attrib_descriptions[2].format = VK_FORMAT_R32_SINT;
-    attrib_descriptions[2].offset = offsetof(InstanceData, key);
+    attrib_descriptions[2].offset = offsetof(NoteData, key);
 
-    attrib_descriptions[3].binding = INSTANCE_BUFFER_BIND_ID;
-    attrib_descriptions[3].location = VERTEX_ATTRIB_COUNT + 3;
+    attrib_descriptions[3].binding = VERTEX_BUFFER_BIND_ID;
+    attrib_descriptions[3].location = 3;
     attrib_descriptions[3].format = VK_FORMAT_R32_UINT;
-    attrib_descriptions[3].offset = offsetof(InstanceData, color);
+    attrib_descriptions[3].offset = offsetof(NoteData, color);
 
     return std::vector(attrib_descriptions.begin(), attrib_descriptions.end());
   }
@@ -240,14 +240,10 @@ public:
   VkDescriptorSetLayout descriptor_set_layout;
   VkPipelineLayout note_pipeline_layout;
   VkPipeline note_pipeline;
-  VkBuffer note_vertex_buffer;
-  VkDeviceMemory note_vertex_buffer_mem;
-  VkBuffer note_instance_buffer;
-  VkDeviceMemory note_instance_buffer_mem;
-  VkBuffer note_index_buffer;
-  VkDeviceMemory note_index_buffer_mem;
+  VkBuffer note_buffer;
+  VkDeviceMemory note_buffer_mem;
   std::vector<VkFramebuffer> swap_chain_framebuffers;
-  std::vector<InstanceData> intermediate_data_i;
+  std::vector<NoteData> intermediate_note_data; // used to go above the buffer size on the gpu
 
   // render pass #1.1: additional note waterfall passes
   VkRenderPass additional_note_render_pass;
@@ -286,7 +282,7 @@ public:
 
   std::array<CustomList<Note>, 256> notes_shown;
   size_t last_notes_shown_count;
-  size_t last_instances_processed = 0;
+  size_t last_notes_processed = 0;
 
   std::array<std::array<bool, NOTE_DEPTH_BUFFER_SIZE>, 256> note_depth_buffer;
   std::array<size_t, 256> notes_hidden;
@@ -324,7 +320,7 @@ public:
   void createSwapChain();
   void createImageViews();
   void createDescriptorSetLayout();
-  void createGraphicsPipeline(const char* vert_spv, size_t vert_spv_length, const char* frag_spv, size_t frag_spv_length, VkRenderPass render_pass, VkPipelineLayout* layout, VkPipeline* pipeline);
+  void createGraphicsPipeline(const char* vert_spv, size_t vert_spv_length, const char* frag_spv, size_t frag_spv_length, const char* geom_spv, size_t geom_spv_length, VkRenderPass render_pass, VkPipelineLayout* layout, VkPipeline* pipeline);
   void createPipelineCache();
   void createCommandPool(VkCommandPool* pool, VkCommandPoolCreateFlags flags);
   void createDepthResources();
@@ -334,11 +330,11 @@ public:
   void createRenderPass(VkRenderPass* pass, bool has_depth, VkAttachmentLoadOp load_op, VkImageLayout initial_layout, VkImageLayout final_layout,
     VkAttachmentLoadOp depth_load_op = VK_ATTACHMENT_LOAD_OP_CLEAR, VkImageLayout depth_initial_layout = VK_IMAGE_LAYOUT_UNDEFINED, VkImageLayout depth_final_layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
   void createVertexBuffer(Vertex vertices[], size_t count, VkBuffer& buffer, VkDeviceMemory& buffer_mem);
-  void createInstanceBuffer(VkDeviceSize size, VkBuffer& buffer, VkDeviceMemory& buffer_mem);
   void createIndexBuffer(uint32_t indices[], size_t count, VkBuffer& buffer, VkDeviceMemory& buffer_mem);
   void createUniformBuffers(std::vector<VkBuffer>& buffer, std::vector<VkDeviceMemory>& buffer_mem);
 
   // render pass #1: note waterfall
+  void createNoteDataBuffer(VkDeviceSize size, VkBuffer& buffer, VkDeviceMemory& buffer_mem);
   void createDescriptorPool();
   void createCommandBuffers();
   void createFramebuffers();
