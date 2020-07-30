@@ -1419,6 +1419,7 @@ void Renderer::drawFrame(float time)
     memset(notes_hidden.data(), 0, notes_hidden.size() * sizeof(size_t));
   }
 
+  /*
   if(hide_notes)
   {
     concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i)
@@ -1468,6 +1469,27 @@ void Renderer::drawFrame(float time)
         }
       }
     });
+  }
+  */
+  if (hide_notes)
+  {
+    concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i)
+      {
+        notes_hidden[i] = 0;
+        bool stop_rendering = false; // active if the entire column is hidden by a single note
+        for (auto x = notes_shown[i].Front(); x; x = x->next)
+        {
+          Note& n = x->data;
+          if (stop_rendering) {
+            n.hidden = true;
+            notes_hidden[i]++;
+          } else {
+            if ((n.start - time) / pre_time < 0 && (n.end - time) / pre_time > 1)
+              stop_rendering = true;
+            n.hidden = false;
+          }
+        }
+      });
   }
 
   size_t notes_shown_size = 0;
