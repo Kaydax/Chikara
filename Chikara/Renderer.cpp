@@ -191,6 +191,7 @@ void Renderer::createLogicalDevice()
   }
 
   VkPhysicalDeviceFeatures device_feats = {};
+  device_feats.geometryShader = true; // if your gpu supports vulkan there's no way it doesn't support geometry shaders
 
   VkDeviceCreateInfo create_info = {};
   create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -443,7 +444,7 @@ void Renderer::createDescriptorSetLayout()
   ubo_layout_binding.binding = 0;
   ubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
   ubo_layout_binding.descriptorCount = 1;
-  ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+  ubo_layout_binding.stageFlags = VK_SHADER_STAGE_GEOMETRY_BIT;
   ubo_layout_binding.pImmutableSamplers = nullptr; // Optional
 
   VkDescriptorSetLayoutBinding sampler_layout_binding = {};
@@ -572,11 +573,12 @@ void Renderer::createDescriptorSets()
 
 #pragma region Create the graphics pipeline
 
-void Renderer::createGraphicsPipeline(const char* vert_spv, size_t vert_spv_length, const char* frag_spv, size_t frag_spv_length, VkRenderPass render_pass, VkPipelineLayout* layout, VkPipeline* pipeline)
+void Renderer::createGraphicsPipeline(const char* vert_spv, size_t vert_spv_length, const char* frag_spv, size_t frag_spv_length, const char* geom_spv, size_t geom_spv_length, VkRenderPass render_pass, VkPipelineLayout* layout, VkPipeline* pipeline)
 {
   //Create the shader modules
   VkShaderModule vert_shader_module = createShaderModule(vert_spv, vert_spv_length);
   VkShaderModule frag_shader_module = createShaderModule(frag_spv, frag_spv_length);
+  VkShaderModule geom_shader_module = createShaderModule(geom_spv, geom_spv_length);
 
   //Now to actually use the shaders we have to assign it to a pipeline stage
   VkPipelineShaderStageCreateInfo vert_shader_stage_info = {};
@@ -591,29 +593,30 @@ void Renderer::createGraphicsPipeline(const char* vert_spv, size_t vert_spv_leng
   frag_shader_stage_info.module = frag_shader_module; //The module that contains the shader code
   frag_shader_stage_info.pName = "main"; //The function to invoke when reading the shader code
 
-  //Put the two structures for the modules into an array so that they can be used later in the pipeline creation step
-  VkPipelineShaderStageCreateInfo shader_stages[] = { vert_shader_stage_info, frag_shader_stage_info };
+  VkPipelineShaderStageCreateInfo geom_shader_stage_info = {};
+  geom_shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+  geom_shader_stage_info.stage = VK_SHADER_STAGE_GEOMETRY_BIT;
+  geom_shader_stage_info.module = geom_shader_module;
+  geom_shader_stage_info.pName = "main";
 
-  //Binding and attribute
-  VkVertexInputBindingDescription binding_description[] = { Vertex::getBindingDescription(), InstanceData::getBindingDescription() };
-  auto attrib_descriptions = Vertex::getAttributeDescriptions();
-  {
-    auto inst_attrib_descriptions = InstanceData::getAttributeDescriptions();
-    attrib_descriptions.insert(attrib_descriptions.end(), inst_attrib_descriptions.begin(), inst_attrib_descriptions.end());
-  }
+  //Put the two structures for the modules into an array so that they can be used later in the pipeline creation step
+  VkPipelineShaderStageCreateInfo shader_stages[] = { vert_shader_stage_info, frag_shader_stage_info, geom_shader_stage_info };
+
+  auto bind_desc = NoteData::getBindingDescription();
+  auto attrib_desc = NoteData::getAttributeDescriptions();
 
   //Describe the format of the vertex data that will be passed to the vertex shader
   VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
   vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-  vertex_input_info.vertexBindingDescriptionCount = sizeof(binding_description) / sizeof(VkVertexInputBindingDescription);
-  vertex_input_info.pVertexBindingDescriptions = binding_description;
-  vertex_input_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(attrib_descriptions.size());;
-  vertex_input_info.pVertexAttributeDescriptions = attrib_descriptions.data();
+  vertex_input_info.vertexBindingDescriptionCount = 1;
+  vertex_input_info.pVertexBindingDescriptions = &bind_desc;
+  vertex_input_info.vertexAttributeDescriptionCount = attrib_desc.size();
+  vertex_input_info.pVertexAttributeDescriptions = attrib_desc.data();
 
   //Describe the input assembly modes
   VkPipelineInputAssemblyStateCreateInfo input_assembly = {};
   input_assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-  input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; //Triangle from every 3 vertices without reuse
+  input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST; // TODO: this is definitely going to catch us off-guard later
   input_assembly.primitiveRestartEnable = VK_FALSE; //If true, it allows us to break up lines and triangles in the _STRIP topology modes
 
   //Setup the viewport
@@ -713,7 +716,7 @@ void Renderer::createGraphicsPipeline(const char* vert_spv, size_t vert_spv_leng
   //Create the pipeline. All of the inputs should be obvious
   VkGraphicsPipelineCreateInfo pipeline_info = {};
   pipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-  pipeline_info.stageCount = 2;
+  pipeline_info.stageCount = 3;
   pipeline_info.pStages = shader_stages;
   pipeline_info.pVertexInputState = &vertex_input_info;
   pipeline_info.pInputAssemblyState = &input_assembly;
@@ -1047,7 +1050,7 @@ void Renderer::createVertexBuffer(Vertex vertices[], size_t count, VkBuffer& buf
   vkFreeMemory(device, staging_buffer_mem, nullptr);
 }
 
-void Renderer::createInstanceBuffer(VkDeviceSize size, VkBuffer& buffer, VkDeviceMemory& buffer_mem)
+void Renderer::createNoteDataBuffer(VkDeviceSize size, VkBuffer& buffer, VkDeviceMemory& buffer_mem)
 {
   //createBuffer(sizeof(InstanceData) * MAX_NOTES, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, note_instance_buffer, note_instance_buffer_mem);
   createBuffer(size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, buffer, buffer_mem);
@@ -1250,14 +1253,11 @@ void Renderer::createCommandBuffers()
 
         vkCmdBindPipeline(cmd_buffers[idx], VK_PIPELINE_BIND_POINT_GRAPHICS, note_pipeline);
 
-        VkBuffer vertex_buffers[] = { note_vertex_buffer };
         VkDeviceSize offsets[] = { 0 };
-        vkCmdBindVertexBuffers(cmd_buffers[idx], VERTEX_BUFFER_BIND_ID, 1, vertex_buffers, offsets);
-        vkCmdBindVertexBuffers(cmd_buffers[idx], INSTANCE_BUFFER_BIND_ID, 1, &note_instance_buffer, offsets);
-        vkCmdBindIndexBuffer(cmd_buffers[idx], note_index_buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindVertexBuffers(cmd_buffers[idx], VERTEX_BUFFER_BIND_ID, 1, &note_buffer, offsets);
         vkCmdBindDescriptorSets(cmd_buffers[idx], VK_PIPELINE_BIND_POINT_GRAPHICS, note_pipeline_layout, 0, 1, &descriptor_sets[swap_chain], 0, nullptr);
 
-        vkCmdDrawIndexed(cmd_buffers[idx], 6, MAX_NOTES_BASE * (note_buf_idx + 1), 0, 0, 0);
+        vkCmdDraw(cmd_buffers[idx], 1, MAX_NOTES_BASE * (note_buf_idx + 1), 0, 0);
 
         vkCmdEndRenderPass(cmd_buffers[idx]);
 
@@ -1532,9 +1532,9 @@ void Renderer::drawFrame(float time)
   void* data;
   int note_cmd_buf = 0;
 
-  if (intermediate_data_i.size() < notes_shown_size) {
+  if (intermediate_note_data.size() < notes_shown_size) {
     //fmt::print("Resized intermediate instance buffer to {:n}\n", notes_shown_size);
-    intermediate_data_i.resize(notes_shown_size);
+    intermediate_note_data.resize(notes_shown_size);
   }
 
   if (last_notes_shown_count > 0) {
@@ -1569,7 +1569,7 @@ void Renderer::drawFrame(float time)
           if (time >= n.end)
           {
             //event_queue[i].push_back(MAKELONG(MAKEWORD((n->channel) | (8 << 4), n->key), MAKEWORD(n->velocity, 0)));
-            intermediate_data_i[key_indices[i]++] = { 0, 0, 0, 0 };
+            intermediate_note_data[key_indices[i]++] = { 0, 0, 0, 0 };
             //delete n;
             auto next = x->next;
             list.Delete(x);
@@ -1582,7 +1582,7 @@ void Renderer::drawFrame(float time)
               if (key_color[n.key] == -1)
                 key_color[n.key] = n.track & 0xF;
             }
-            intermediate_data_i[key_indices[i]++] = { static_cast<float>(n.start), static_cast<float>(n.end), n.key, colors_packed[n.track & 0xF] };
+            intermediate_note_data[key_indices[i]++] = { static_cast<float>(n.start), static_cast<float>(n.end), n.key, colors_packed[n.track & 0xF] };
             x = x->next;
           }
         }
@@ -1617,30 +1617,30 @@ void Renderer::drawFrame(float time)
   vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
   
   VkCommandBuffer last_note_cmdbuf = nullptr; // used to submit a single note draw command buffer at the same time as the imgui one
-  size_t instances_left = notes_shown_size;
+  size_t notes_left = notes_shown_size;
   if (notes_shown_size == 0)
     last_note_cmdbuf = cmd_buffers[img_index * MAX_NOTES_MULT];
   for (size_t i = 0; i < notes_shown_size; i += MAX_NOTES) {
-    size_t instances_processed = min(instances_left, MAX_NOTES);
-    vkMapMemory(device, note_instance_buffer_mem, 0, sizeof(InstanceData) * instances_processed, 0, &data);
-    memcpy(data, intermediate_data_i.data() + (notes_shown_size - instances_left), instances_processed * sizeof(InstanceData));
-    if (last_instances_processed > instances_processed)
-      memset((InstanceData*)data + instances_processed, 0, sizeof(InstanceData) * (last_instances_processed - instances_processed));
-    vkUnmapMemory(device, note_instance_buffer_mem);
+    size_t notes_processed = min(notes_left, MAX_NOTES);
+    vkMapMemory(device, note_buffer_mem, 0, sizeof(NoteData) * notes_processed, 0, &data);
+    memcpy(data, intermediate_note_data.data() + (notes_shown_size - notes_left), notes_processed * sizeof(NoteData));
+    if (last_notes_processed > notes_processed)
+      memset((NoteData*)data + notes_processed, 0, sizeof(NoteData) * (last_notes_processed - notes_processed));
+    vkUnmapMemory(device, note_buffer_mem);
 
     for (int x = 0; x < MAX_NOTES_MULT; x++)
     {
-      if (instances_processed <= (MAX_NOTES_BASE * (x + 1)))
+      if (notes_processed <= (MAX_NOTES_BASE * (x + 1)))
       {
         note_cmd_buf = x;
         break;
       }
     }
 
-    instances_left -= instances_processed;
-    last_instances_processed = instances_processed;
+    notes_left -= notes_processed;
+    last_notes_processed = notes_processed;
     auto cmd_buf = cmd_buffers[(i == 0 ? 0 : swap_chain_framebuffers.size() * MAX_NOTES_MULT) + note_cmd_buf + img_index * MAX_NOTES_MULT];
-    if (instances_left == 0)
+    if (notes_left == 0)
       last_note_cmdbuf = cmd_buf;
     else
       submitSingleCommandBuffer(cmd_buf);

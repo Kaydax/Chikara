@@ -13,6 +13,7 @@
 #pragma warning(disable : 4309)
 #include "Shaders/notes_f.h"
 #include "Shaders/notes_v.h"
+#include "Shaders/notes_g.h"
 #pragma warning(pop)
 
 Renderer r;
@@ -40,7 +41,7 @@ void Main::run(int argc, wchar_t** argv)
   auto config_path = Config::GetConfigPath();
   Config::GetConfig().Load(config_path);
   KDMAPI::Init();
-  SetConsoleOutputCP(65001);
+  SetConsoleOutputCP(65001); // utf-8
   fmt::print("Loading {}\n", Utils::wstringToUtf8(Utils::GetFileName(argv[1])));
   std::cout << "RPC Enabled: " << Config::GetConfig().discord_rpc << std::endl;
   if(Config::GetConfig().discord_rpc) Utils::InitDiscord();
@@ -85,7 +86,7 @@ void Main::initVulkan()
   r.createRenderPass(&r.additional_note_render_pass, true, VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
     VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
   r.createDescriptorSetLayout();
-  r.createGraphicsPipeline((const char*)notes_v, notes_v_length, (const char*)notes_f, notes_f_length, r.note_render_pass, &r.note_pipeline_layout, &r.note_pipeline);
+  r.createGraphicsPipeline(notes_v, notes_v_length, notes_f, notes_f_length, notes_g, notes_g_length, r.note_render_pass, &r.note_pipeline_layout, &r.note_pipeline);
   r.createRenderPass(&r.imgui_render_pass, false, VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
   r.createPipelineCache();
   r.createCommandPool(&r.cmd_pool, 0);
@@ -96,9 +97,10 @@ void Main::initVulkan()
   //r.createTextureImage();
   //r.createTextureImageView();
   //r.createTextureSampler();
-  r.createVertexBuffer(instanced_quad, 4, r.note_vertex_buffer, r.note_vertex_buffer_mem);
-  r.createInstanceBuffer(sizeof(InstanceData) * MAX_NOTES, r.note_instance_buffer, r.note_instance_buffer_mem);
-  r.createIndexBuffer(instanced_quad_indis, 6, r.note_index_buffer, r.note_index_buffer_mem);
+  //r.createVertexBuffer(instanced_quad, 4, r.note_vertex_buffer, r.note_vertex_buffer_mem);
+  //r.createInstanceBuffer(sizeof(InstanceData) * MAX_NOTES, r.note_instance_buffer, r.note_instance_buffer_mem);
+  //r.createIndexBuffer(instanced_quad_indis, 6, r.note_index_buffer, r.note_index_buffer_mem);
+  r.createNoteDataBuffer(sizeof(NoteData) * MAX_NOTES, r.note_buffer, r.note_buffer_mem);
   r.createUniformBuffers(r.uniform_buffers, r.uniform_buffers_mem);
   r.createDescriptorPool();
   r.createImGuiDescriptorPool();
@@ -206,7 +208,7 @@ void Main::recreateSwapChain()
   r.createRenderPass(&r.note_render_pass, true, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
   r.createRenderPass(&r.additional_note_render_pass, true, VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
     VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-  r.createGraphicsPipeline((const char*)notes_v, notes_v_length, (const char*)notes_f, notes_f_length, r.note_render_pass, &r.note_pipeline_layout, &r.note_pipeline);
+  r.createGraphicsPipeline(notes_v, notes_v_length, notes_f, notes_f_length, notes_g, notes_g_length, r.note_render_pass, &r.note_pipeline_layout, &r.note_pipeline);
   r.createRenderPass(&r.imgui_render_pass, false, VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
   r.createDepthResources();
   r.createFramebuffers();
@@ -243,14 +245,8 @@ void Main::cleanup()
 
   vkDestroyDescriptorSetLayout(r.device, r.descriptor_set_layout, nullptr);
 
-  vkDestroyBuffer(r.device, r.note_index_buffer, nullptr);
-  vkFreeMemory(r.device, r.note_index_buffer_mem, nullptr);
-
-  vkDestroyBuffer(r.device, r.note_instance_buffer, nullptr);
-  vkFreeMemory(r.device, r.note_instance_buffer_mem, nullptr);
-
-  vkDestroyBuffer(r.device, r.note_vertex_buffer, nullptr);
-  vkFreeMemory(r.device, r.note_vertex_buffer_mem, nullptr);
+  vkDestroyBuffer(r.device, r.note_buffer, nullptr);
+  vkFreeMemory(r.device, r.note_buffer_mem, nullptr);
 
   for(size_t i = 0; i < max_frames_in_flight; i++)
   {
