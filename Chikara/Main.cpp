@@ -2,6 +2,7 @@
 #include "KDMAPI.h"
 #include "Config.h"
 #include "Utils.h"
+#include "Platform.h"
 
 #include <inttypes.h>
 #include <fmt/locale.h>
@@ -33,19 +34,24 @@ uint32_t instanced_quad_indis[] = {
 
 void Main::run(int argc, wchar_t** argv)
 {
+  std::wstring filename;
   if (argc < 2) {
-    printf("Usage: Chikara.exe [midi]\n");
-    return;
+    filename = Platform::OpenMIDIFileDialog();
+    if (filename.empty())
+      return;
+  } else {
+    filename = argv[1];
   }
 
   auto config_path = Config::GetConfigPath();
   Config::GetConfig().Load(config_path);
   KDMAPI::Init();
   SetConsoleOutputCP(65001); // utf-8
-  fmt::print("Loading {}\n", Utils::wstringToUtf8(Utils::GetFileName(argv[1])));
+  fmt::print("Loading {}\n", Utils::wstringToUtf8(Utils::GetFileName(filename)));
   std::cout << "RPC Enabled: " << Config::GetConfig().discord_rpc << std::endl;
   if(Config::GetConfig().discord_rpc) Utils::InitDiscord();
-  midi = new Midi(argv[1]);
+  wchar_t* filename_temp = _wcsdup(filename.c_str());
+  midi = new Midi(filename_temp);
   r.note_event_buffer = midi->note_event_buffer;
   r.midi_renderer_time = &midi->renderer_time;
   r.note_stacks.resize(midi->track_count * 16);
@@ -55,19 +61,20 @@ void Main::run(int argc, wchar_t** argv)
   // playback thread spawned in mainLoop to ensure it's synced with render
   //printf(file_name);
   midi->SpawnLoaderThread();
-  initWindow(argv); //Setup everything for the window
+  initWindow(filename); //Setup everything for the window
   initVulkan(); //Setup everything for Vulkan
-  mainLoop(argv); //The main loop for the application
+  mainLoop(filename); //The main loop for the application
   cleanup(); //Cleanup everything because we closed the application
+  free(filename_temp);
 }
 
-void Main::initWindow(wchar_t** argv)
+void Main::initWindow(std::wstring midi)
 {
   glfwInit(); //Init glfw
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); //Set the glfw api to GLFW_NO_API because we are using Vulkan
   glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); //Change the ability to resize the window
   //glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE); //Window Transparancy
-  auto filename = Utils::wstringToUtf8(Utils::GetFileName(argv[1]));
+  auto filename = Utils::wstringToUtf8(Utils::GetFileName(midi));
   r.window = glfwCreateWindow(default_width, default_height, std::string("Chikara | " + filename).c_str(), nullptr, nullptr); //Now we create the window
   glfwSetWindowUserPointer(r.window, &r);
   glfwSetFramebufferSizeCallback(r.window, r.framebufferResizeCallback);
@@ -117,7 +124,7 @@ auto last_time = timer.now();
 uint64_t frame_counter = 0;
 uint64_t fps = 0;
 
-void Main::mainLoop(wchar_t** argv)
+void Main::mainLoop(std::wstring midi_name)
 {
   static auto start_time = std::chrono::high_resolution_clock::now() + std::chrono::seconds(1);
 
@@ -130,7 +137,7 @@ void Main::mainLoop(wchar_t** argv)
   */
   if (Config::GetConfig().discord_rpc) {
     auto rpc_text = fmt::format(std::locale("en_US.UTF-8"), "Note Count: {:n}", midi->note_count);
-    Utils::UpdatePresence(rpc_text.c_str(), "Playing: ", Utils::wstringToUtf8(Utils::GetFileName(argv[1])), (uint64_t)start, (uint64_t)end_time);
+    Utils::UpdatePresence(rpc_text.c_str(), "Playing: ", Utils::wstringToUtf8(Utils::GetFileName(midi_name)), (uint64_t)start, (uint64_t)end_time);
   }
   while(!glfwWindowShouldClose(r.window))
   {

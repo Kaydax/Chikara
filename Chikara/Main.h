@@ -1,3 +1,4 @@
+#include <string>
 #include "Renderer.h"
 #include "Midi.h"
 
@@ -7,9 +8,9 @@ class Main
     void run(int argc, wchar_t** argv);
     void recreateSwapChain();
   private:
-    void initWindow(wchar_t** argv);
+    void initWindow(std::wstring midi);
     void initVulkan();
-    void mainLoop(wchar_t** argv);
+    void mainLoop(std::wstring midi);
     void cleanupSwapChain();
     void cleanup();
 };

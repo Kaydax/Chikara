@@ -38,6 +38,7 @@
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Midi.cpp" />
     <ClCompile Include="Misc.cpp" />
+    <ClCompile Include="PlatformWin.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="Utils.cpp" />
   </ItemGroup>
@@ -49,6 +50,7 @@
     <ClInclude Include="Main.h" />
     <ClInclude Include="Midi.h" />
     <ClInclude Include="Misc.h" />
+    <ClInclude Include="Platform.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="Shaders\notes_f.h" />
     <ClInclude Include="Shaders\notes_v.h" />
