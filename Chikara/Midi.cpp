@@ -90,19 +90,29 @@ void Midi::loadMidi()
 
     while(file_stream.tellg() != file_end)
     {
-      assertText("MTrk");
-      length = parseInt();
-      size_t pos = file_stream.tellg();
+      try {
+        assertText("MTrk");
+        length = parseInt();
+        size_t pos = file_stream.tellg();
 
-      if(length + pos > file_end) length = file_end - pos;
+        if (length + pos > file_end) {
+          printf("warning: track runs past the end of the midi\n");
+          length = file_end - pos;
+        }
 
-      file_stream.seekg(pos + length, std::ios::beg);
+        file_stream.seekg(pos + length, std::ios::beg);
 
-      MidiChunk chunk;
-      chunk.start = pos;
-      chunk.length = length;
-      tracks.push_back(chunk);
-      count++;
+        MidiChunk chunk;
+        chunk.start = pos;
+        chunk.length = length;
+        tracks.push_back(chunk);
+        count++;
+      }
+      catch (const char* e) {
+        int track_pos = file_stream.tellg();
+        printf("broken track, not parsing further! pos: %d\n", track_pos);
+        break;
+      }
     }
 
     track_count = count;
@@ -231,6 +241,7 @@ void Midi::loadMidi()
 
   } catch(const char* e)
   {
+    printf("%s\n", e);
     MessageBoxA(NULL, "This MIDI doesn't appear to be valid.", "Fatal Error", MB_ICONERROR);
     exit(1);
   }
@@ -409,7 +420,7 @@ void BufferedReader::updateBuffer()
   if ((pos + read) > (start + length))
     read = start + length - pos;
 
-  if (read == 0)
+  if (read == 0 && buffer_size != 0)
     throw "\nOutside the buffer";
 
   mtx->lock();
