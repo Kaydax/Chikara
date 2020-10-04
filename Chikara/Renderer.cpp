@@ -1922,13 +1922,13 @@ void Renderer::ImGuiFrame() {
       switch(stat.type)
       {
         case ImGuiStatType::Float:
-          str = fmt::format(std::locale("en_US.UTF-8"), "{:0.3f}", *(float*)stat.value).c_str();
+          str = fmt::format(std::locale(""), "{:0.3f}", *(float*)stat.value).c_str();
           break;
         case ImGuiStatType::Double:
-          str = fmt::format(std::locale("en_US.UTF-8"), "{:0.3f}", *(double*)stat.value).c_str();
+          str = fmt::format(std::locale(""), "{:0.3f}", *(double*)stat.value).c_str();
           break;
         case ImGuiStatType::Uint64:
-          str = fmt::format(std::locale("en_US.UTF-8"), "{:n}", *(uint64_t*)stat.value).c_str();
+          str = fmt::format(std::locale(""), "{:n}", *(uint64_t*)stat.value).c_str();
           break;
         case ImGuiStatType::String:
           str = *(std::string*)stat.value;
@@ -1941,8 +1941,8 @@ void Renderer::ImGuiFrame() {
       ImGui::Text("%s", str.c_str());
     }
   }
-  auto n_played = fmt::format(std::locale("en_US.UTF-8"), "{:n}", *notes_played);
-  auto count = fmt::format(std::locale("en_US.UTF-8"), "{:n}", *note_count);
+  auto n_played = fmt::format(std::locale(""), "{:n}", *notes_played);
+  auto count = fmt::format(std::locale(""), "{:n}", *note_count);
   ImGui::Text((n_played + " / " + count).c_str());
   if(hide_notes) ImGui::Text("Overlap remover enabled");
 

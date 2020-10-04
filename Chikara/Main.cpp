@@ -133,10 +133,10 @@ void Main::mainLoop(std::wstring midi_name)
   midi->SpawnPlaybackThread(start_time);
   /*
   char buffer[256];
-  sprintf(buffer, "Note Count: %s", fmt::format(std::locale("en_US.UTF-8"), "{:n}", midi->note_count));
+  sprintf(buffer, "Note Count: %s", fmt::format(std::locale(""), "{:n}", midi->note_count));
   */
   if (Config::GetConfig().discord_rpc) {
-    auto rpc_text = fmt::format(std::locale("en_US.UTF-8"), "Note Count: {:n}", midi->note_count);
+    auto rpc_text = fmt::format(std::locale(""), "Note Count: {:n}", midi->note_count);
     Utils::UpdatePresence(rpc_text.c_str(), "Playing: ", Utils::wstringToUtf8(Utils::GetFileName(midi_name)), (uint64_t)start, (uint64_t)end_time);
   }
   while(!glfwWindowShouldClose(r.window))
