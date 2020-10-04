@@ -73,7 +73,7 @@ void main() {
         // TODO: this is repetitive, not sure if the compiler will optimize this
         //float top = (noteEnd[i] - ubo.time) / ubo.pre_time + ubo.keyboard_height;
         //float bottom = (noteStart[i] - ubo.time) / ubo.pre_time + ubo.keyboard_height;
-        vec2 heights = (vec2(noteStart[i], noteEnd[i]) - vec2(ubo.time)) / vec2(ubo.pre_time) + vec2(ubo.keyboard_height);
+        vec2 heights = ((vec2(noteStart[i], noteEnd[i]) - vec2(ubo.time)) / vec2(ubo.pre_time)) * (1.0 - ubo.keyboard_height) + vec2(ubo.keyboard_height);
         float left = xTable[noteKey[i]];
         float right = mix(1.0, blackWidth, isBlackKey[noteKey[i] % 12]) / float(nWhiteKeys) + left;
 
