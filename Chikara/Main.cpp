@@ -19,6 +19,7 @@
 
 Renderer r;
 Midi* midi;
+MidiTrack* trk;
 
 Vertex instanced_quad[] {
   { {0,1}, {0,1} },
@@ -57,6 +58,7 @@ void Main::run(int argc, wchar_t** argv)
   r.note_stacks.resize(midi->track_count * 16);
   r.note_count = &midi->note_count;
   r.notes_played = &midi->notes_played;
+  r.marker = &trk->marker;
   r.song_len = midi->song_len;
   // playback thread spawned in mainLoop to ensure it's synced with render
   //printf(file_name);

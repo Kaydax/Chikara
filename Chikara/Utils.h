@@ -13,5 +13,6 @@ class Utils
     static void UpdatePresence(const char* state, const char* details, std::string file_name, uint64_t start_time, uint64_t end_time);
     static void DestroyDiscord();
     static std::string wstringToUtf8(std::wstring str);
+    template <typename _Index_type, typename _Function>
 };
 

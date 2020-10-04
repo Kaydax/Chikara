@@ -90,12 +90,14 @@ void Midi::loadMidi()
 
     while(file_stream.tellg() != file_end)
     {
-      try {
+      try
+      {
         assertText("MTrk");
         length = parseInt();
         size_t pos = file_stream.tellg();
 
-        if (length + pos > file_end) {
+        if(length + pos > file_end)
+        {
           printf("warning: track runs past the end of the midi\n");
           length = file_end - pos;
         }
@@ -107,8 +109,8 @@ void Midi::loadMidi()
         chunk.length = length;
         tracks.push_back(chunk);
         count++;
-      }
-      catch (const char* e) {
+      } catch(const char* e)
+      {
         int track_pos = file_stream.tellg();
         printf("broken track, not parsing further! pos: %d\n", track_pos);
         break;
@@ -125,25 +127,25 @@ void Midi::loadMidi()
     MidiTrack** parse_tracks = new MidiTrack * [track_count];
 
     concurrency::parallel_for(uint32_t(0), track_count, [&](uint32_t i)
+    {
+      MidiTrack* track = new MidiTrack(&file_stream, tracks[i].start, tracks[i].length, 100000, i, ppq, &mtx);
+
+      parse_tracks[i] = track;
+
+      while(!track->ended)
       {
-        MidiTrack* track = new MidiTrack(&file_stream, tracks[i].start, tracks[i].length, 100000, i, ppq, &mtx);
+        track->parseDelta();
+        track->parseEvent(nullptr, nullptr);
+      }
 
-        parse_tracks[i] = track;
+      mtx.lock();
+      tc += track->tempo_events.size();
+      tn++;
 
-        while (!track->ended)
-        {
-          track->parseDelta();
-          track->parseEvent(nullptr, nullptr);
-        }
-
-        mtx.lock();
-        tc += track->tempo_events.size();
-        tn++;
-
-        std::cout << "\nParsed track " << tn << " note count " << track->notes_parsed;
-        nc += (uint64_t)track->notes_parsed;
-        mtx.unlock();
-      });
+      std::cout << "\nParsed track " << tn << " note count " << track->notes_parsed;
+      nc += (uint64_t)track->notes_parsed;
+      mtx.unlock();
+    });
 
     /*for(int i = 0; i < track_count; i++)
     {
@@ -209,9 +211,10 @@ void Midi::loadMidi()
     }
 
     uint64_t max_tick = 0;
-    for (int i = 0; i < track_count; i++) {
+    for(int i = 0; i < track_count; i++)
+    {
       auto track = parse_tracks[i];
-      if (track->tick_time > max_tick)
+      if(track->tick_time > max_tick)
         max_tick = track->tick_time;
     }
     auto tick_delta = max_tick - last_tempo_change;
@@ -233,7 +236,7 @@ void Midi::loadMidi()
       readers[i]->global_tempo_event_count = tempo_count;
     }
 
-    note_event_buffer = new moodycamel::ReaderWriterQueue<NoteEvent>* [256];
+    note_event_buffer = new moodycamel::ReaderWriterQueue<NoteEvent> * [256];
     for(int i = 0; i < 256; i++)
     {
       note_event_buffer[i] = new moodycamel::ReaderWriterQueue<NoteEvent>();
@@ -299,35 +302,40 @@ void Midi::LoaderThread()
   uint64_t time = 0;
   bool all_ended = false;
   bool* tracks_ended = new bool[track_count];
-  while (true) {
+  while(true)
+  {
     memset(tracks_ended, 0, track_count);
-    while (seconds < renderer_time.load() + 10.0f)
+    while(seconds < renderer_time.load() + 10.0f)
     {
-      for (int i = 0; i < track_count; i++)
+      for(int i = 0; i < track_count; i++)
       {
         MidiTrack* track = readers[i];
-        if (track->ended) {
+        if(track->ended)
+        {
           tracks_ended[i] = true;
-          if (!track->notes_ended) {
+          if(!track->notes_ended)
+          {
             track->notes_ended = true;
             NoteEvent e;
             e.time = seconds;
             e.track = i;
             e.type = NoteEventType::TrackEnded;
-            for (int y = 0; y < 256; y++)
+            for(int y = 0; y < 256; y++)
               note_event_buffer[y]->enqueue(e);
           }
           continue;
         }
-        if (!track->delta_parsed)
+        if(!track->delta_parsed)
           track->parseDeltaTime();
-        if (time < track->tick_time)
+        if(time < track->tick_time)
           continue;
-        while (time >= track->tick_time) {
+        while(time >= track->tick_time)
+        {
           track->parseEvent(note_event_buffer, &misc_events);
-          if (track->time > seconds) seconds = track->time;
+          if(track->time > seconds) seconds = track->time;
           track->parseDeltaTime();
-          if (track->ended) {
+          if(track->ended)
+          {
             tracks_ended[i] = true;
             break;
           }
@@ -335,16 +343,18 @@ void Midi::LoaderThread()
       }
       time++;
       all_ended = true;
-      for (int i = 0; i < track_count; i++) {
-        if (tracks_ended[i] == false) {
+      for(int i = 0; i < track_count; i++)
+      {
+        if(tracks_ended[i] == false)
+        {
           all_ended = false;
           break;
         }
       }
-      if (all_ended)
+      if(all_ended)
         break;
     }
-    if (all_ended)
+    if(all_ended)
       break;
   }
   delete[] tracks_ended;
@@ -364,18 +374,22 @@ void Midi::PlaybackThread()
   auto last_time = timer.now();
 
   // this not only plays pitch bend and other events, but normal note events too
-  while (true) {
+  while(true)
+  {
     bool stop_requested = false;
     auto current_time = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
     MidiEvent event;
-    while (misc_events.try_dequeue(event)) {
-      while (time < event.time) {
+    while(misc_events.try_dequeue(event))
+    {
+      while(time < event.time)
+      {
         current_time = std::chrono::high_resolution_clock::now();
         time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
       }
       auto msg = event.msg;
-      if (msg == PLAYBACK_TERMINATE_EVENT) {
+      if(msg == PLAYBACK_TERMINATE_EVENT)
+      {
         stop_requested = true;
         break;
       }
@@ -383,7 +397,7 @@ void Midi::PlaybackThread()
         notes_played++;
       KDMAPI::SendDirectData(msg);
     }
-    if (stop_requested)
+    if(stop_requested)
       break;
   }
   printf("\nplayback thread exiting\n");
@@ -402,7 +416,7 @@ BufferedReader::BufferedReader(std::ifstream* _file_stream, size_t _start, size_
   mtx = _mtx;
   buffer_start = start;
 
-  if (buffer_size > length) buffer_size = (uint32_t)length;
+  if(buffer_size > length) buffer_size = (uint32_t)length;
   buffer = new uint8_t[buffer_size];
 
   updateBuffer();
@@ -417,10 +431,10 @@ void BufferedReader::updateBuffer()
 {
   uint32_t read = buffer_size;
 
-  if ((pos + read) > (start + length))
+  if((pos + read) > (start + length))
     read = start + length - pos;
 
-  if (read == 0 && buffer_size != 0)
+  if(read == 0 && buffer_size != 0)
     throw "\nOutside the buffer";
 
   mtx->lock();
@@ -435,24 +449,25 @@ void BufferedReader::updateBuffer()
 // storage as int64 is fine, nobody will have a midi over 9223 pb
 void BufferedReader::seek(int64_t offset, int origin)
 {
-  if (origin != SEEK_SET && origin != SEEK_CUR)
+  if(origin != SEEK_SET && origin != SEEK_CUR)
     throw "Invalid seek origin!";
 
   int64_t real_offset = offset;
-  if (origin == SEEK_SET)
+  if(origin == SEEK_SET)
     real_offset += start;
   else
     real_offset += pos;
 
-  if (real_offset < (int64_t)start)
+  if(real_offset < (int64_t)start)
     throw "Attempted to seek before start!";
-  if (real_offset > start + length)
+  if(real_offset > start + length)
     throw "Attempted to seek past end!";
 
   pos = real_offset;
 
   // buffer doesn't have to be remade if seeking between it already
-  if (buffer_start <= real_offset && real_offset < buffer_start + buffer_size) {
+  if(buffer_start <= real_offset && real_offset < buffer_start + buffer_size)
+  {
     buffer_pos = pos - buffer_start;
     return;
   }
@@ -462,12 +477,12 @@ void BufferedReader::seek(int64_t offset, int origin)
 
 void BufferedReader::read(uint8_t* dst, size_t size)
 {
-  if (pos + size > start + length)
+  if(pos + size > start + length)
     throw "Attempted to read past end!";
-  if (size > buffer_size)
+  if(size > buffer_size)
     throw "(UMIMPLEMENTED) Requested read size is larger than the buffer size!";
 
-  if (buffer_start + buffer_pos + size > buffer_start + buffer_size)
+  if(buffer_start + buffer_pos + size > buffer_start + buffer_size)
     updateBuffer();
 
   memcpy(dst, buffer + buffer_pos, size);
@@ -482,7 +497,8 @@ uint8_t BufferedReader::readByte()
   return ret;
 }
 
-void BufferedReader::skipBytes(size_t size) {
+void BufferedReader::skipBytes(size_t size)
+{
   seek(size, SEEK_CUR);
 }
 
@@ -589,7 +605,7 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_not
     switch(cmd)
     {
       case 0x80: // Note Off
-        if (stage_2)
+        if(stage_2)
         {
           uint8_t key = reader->readByte();
           uint8_t vel = reader->readByte();
@@ -613,7 +629,7 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_not
         }
         break;
       case 0x90: // Note On
-        if (stage_2)
+        if(stage_2)
         {
           uint8_t key = reader->readByte();
           uint8_t vel = reader->readByte();
@@ -648,8 +664,8 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_not
         }
         else
         {
-        reader->readByte();
-        if(reader->readByte() > 0) notes_parsed++;
+          reader->readByte();
+          if(reader->readByte() > 0) notes_parsed++;
         }
         break;
       case 0xA0: // Polyphonic Pressure
@@ -711,18 +727,26 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_not
               case 0x07: // Cue point
               case 0x0A:
               {
-                uint8_t* data = new uint8_t[val];
+                uint8_t* data = new uint8_t[val + 1];
                 for(int i = 0; i < val; i++) data[i] = reader->readByte();
-                if(command == 0x0A && (val == 8 || val == 12) && data[0] == 0x00 && data[1] == 0x0F && (data[2] < 16 || data[2] == 0x7F) && data[3] == 0)
+                if(command2 == 0x06)
+                {
+                  data[val] = '\0';
+                  std::cout << data << std::endl;
+                }
+                if(command2 == 0x0A && (val == 8 || val == 12) && data[0] == 0x00 && data[1] == 0x0F && (data[2] < 16 || data[2] == 0x7F) && data[3] == 0)
                 {
                   if(val == 8)
                   {
                     //double delta, byte channel, byte r, byte g, byte b, byte a
+                    delete[] data;
                     break;
                   }
                   //double delta, byte r, byte g, byte b, byte a, byte r2, byte g2, byte b2, byte a2
+                  delete[] data;
                   break;
                 }
+                delete[] data;
                 break;
               }
               case 0x7F: // Sequencer-specific information
@@ -741,10 +765,11 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_not
               case 0x51: // Tempo
               {
                 uint32_t tempo = 0;
-                for (int i = 0; i != 3; i++)
+                for(int i = 0; i != 3; i++)
                   tempo = (uint32_t)((tempo << 8) | reader->readByte());
 
-                if (!stage_2) {
+                if(!stage_2)
+                {
                   Tempo t;
                   t.pos = tick_time;
                   t.tempo = tempo;
