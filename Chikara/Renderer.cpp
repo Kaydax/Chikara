@@ -14,8 +14,10 @@
 #include "KDMAPI.h"
 #include "Licenses.h"
 #include "Config.h"
+#include "Utils.h"
 
 Main m;
+Utils u;
 
 glm::vec3 colors[16] = {
   {51 / 255.0f, 102 / 255.0f, 255 / 255.0f},
@@ -222,6 +224,10 @@ void Renderer::createLogicalDevice()
 
   vkGetDeviceQueue(device, indis.graphics_fam.value(), 0, &graphics_queue);
   vkGetDeviceQueue(device, indis.present_fam.value(), 0, &present_queue);
+
+  VkPhysicalDeviceProperties physical_properties = {};
+  vkGetPhysicalDeviceProperties(pdevice, &physical_properties);
+  fprintf(stdout, "\nGPU: %s\n", physical_properties.deviceName);
 }
 
 #pragma endregion
@@ -1856,9 +1862,12 @@ void Renderer::ImGuiFrame()
   if(Config::GetConfig().rainbow_bar)
   {
     auto cur_time = midi_renderer_time->load();
-    auto bar_col = IM_COL32(sinf(cur_time / 2) * 127 + 127, sinf(cur_time) * 127 + 127, sinf(cur_time * 1.5) * 127 + 127, 255);
+    //auto bar_col = IM_COL32(sinf(cur_time / 2) * 127 + 127, sinf(cur_time) * 127 + 127, sinf(cur_time * 1.5) * 127 + 127, 255);
+    auto cur_color = u.HSVtoRGB((int)(cur_time * Config::GetConfig().rainbow_speed) % 360, 1, 1);
     draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height - keyboard_height * 0.05),
-                             ImVec2(window_width, window_height - keyboard_height), bar_col);
+                             ImVec2(window_width, window_height - keyboard_height), IM_COL32(cur_color.r, cur_color.g, cur_color.b, 255));
+    draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height - keyboard_height * 0.03),
+                             ImVec2(window_width, window_height - keyboard_height), IM_COL32(cur_color.r / 2, cur_color.g / 2, cur_color.b / 2, 255));
   }
   else
   {
@@ -2002,6 +2011,7 @@ void Renderer::ImGuiFrame()
         ImGui::SliderFloat("Note Speed", &Config::GetConfig().note_speed, 10, 0.01);
         ImGui::Checkbox("Rainbow Bar", &Config::GetConfig().rainbow_bar);
         ImGui::ColorEdit3("Bar Color", &Config::GetConfig().bar_color.r, ImGuiColorEditFlags_RGB); // haha undefined behavior go Segmentation fault
+        if(Config::GetConfig().rainbow_bar) ImGui::SliderFloat("Rainbow Speed", &Config::GetConfig().rainbow_speed, 1, 1000);
         ImGui::EndTabItem();
       }
       if(ImGui::BeginTabItem("About"))

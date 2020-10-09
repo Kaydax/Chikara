@@ -732,7 +732,7 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_not
                 if(command2 == 0x06)
                 {
                   data[val] = '\0';
-                  std::cout << data << std::endl;
+                  //std::cout << data << std::endl;
                 }
                 if(command2 == 0x0A && (val == 8 || val == 12) && data[0] == 0x00 && data[1] == 0x0F && (data[2] < 16 || data[2] == 0x7F) && data[3] == 0)
                 {

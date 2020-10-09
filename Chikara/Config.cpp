@@ -29,6 +29,7 @@ void Config::Load(std::string& path) {
   discord_rpc = reader.GetBoolean("Chikara", "RPC", discord_rpc);
   bar_color = GetVec3(reader, "Chikara", "BarColor", bar_color);
   note_speed = GetFloat(reader, "Chikara", "NoteSpeed", note_speed);
+  rainbow_speed = GetFloat(reader, "Chikara", "RainbowSpeed", rainbow_speed);
 
   config_path = path;
 }
@@ -49,6 +50,7 @@ bool Config::Save() {
   WriteBool(ini, "RPC", discord_rpc);
   WriteVec3(ini, "BarColor", bar_color);
   WriteFloat(ini, "NoteSpeed", note_speed);
+  WriteFloat(ini, "RainbowSpeed", rainbow_speed);
 
   fclose(ini);
 
