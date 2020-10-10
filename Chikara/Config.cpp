@@ -86,5 +86,5 @@ void Config::WriteVec3(FILE* file, const std::string& name, glm::vec3& value) {
 
 void Config::WriteFloat(FILE* file, const std::string& name, float value)
 {
-  fprintf(file, "%s = %f", name.c_str(), value);
+  fprintf(file, "%s = %f\n", name.c_str(), value);
 }
