@@ -1253,8 +1253,9 @@ void Renderer::createCommandBuffers()
         render_pass_info.renderArea.offset = { 0, 0 };
         render_pass_info.renderArea.extent = swap_chain_extent; //Render area defines where shader loads and stores take place. Anything outside this area are undefined, allowing for better performance
 
+        glm::vec3 clear_color = Config::GetConfig().clear_color;
         std::array<VkClearValue, 2> clear_values = {};
-        clear_values[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+        clear_values[0].color = { clear_color.r, clear_color.g, clear_color.b, 1.0f };
         clear_values[1].depthStencil = { 1.0f, 0 };
 
         render_pass_info.clearValueCount = static_cast<uint32_t>(clear_values.size());
@@ -2010,6 +2011,7 @@ void Renderer::ImGuiFrame()
         ImGui::Checkbox("Toggle Discord Rich Presence*", &Config::GetConfig().discord_rpc);
         ImGui::SliderFloat("Note Speed", &Config::GetConfig().note_speed, 10, 0.01);
         ImGui::Checkbox("Rainbow Bar", &Config::GetConfig().rainbow_bar);
+        ImGui::ColorEdit3("Background Color*", &Config::GetConfig().clear_color.r, ImGuiColorEditFlags_RGB);
         ImGui::ColorEdit3("Bar Color", &Config::GetConfig().bar_color.r, ImGuiColorEditFlags_RGB); // haha undefined behavior go Segmentation fault
         if(Config::GetConfig().rainbow_bar) ImGui::SliderFloat("Rainbow Speed", &Config::GetConfig().rainbow_speed, 1, 1000);
         ImGui::EndTabItem();

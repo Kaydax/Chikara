@@ -1,6 +1,4 @@
-#include <Windows.h>
 #include <shlwapi.h>
-
 #include "Config.h"
 
 Config g_config;
@@ -28,6 +26,7 @@ void Config::Load(std::string& path) {
   rainbow_bar = reader.GetBoolean("Chikara", "RainbowBar", rainbow_bar);
   discord_rpc = reader.GetBoolean("Chikara", "RPC", discord_rpc);
   bar_color = GetVec3(reader, "Chikara", "BarColor", bar_color);
+  clear_color = GetVec3(reader, "Chikara", "ClearColor", clear_color);
   note_speed = GetFloat(reader, "Chikara", "NoteSpeed", note_speed);
   rainbow_speed = GetFloat(reader, "Chikara", "RainbowSpeed", rainbow_speed);
 
@@ -49,6 +48,7 @@ bool Config::Save() {
   WriteBool(ini, "RainbowBar", rainbow_bar);
   WriteBool(ini, "RPC", discord_rpc);
   WriteVec3(ini, "BarColor", bar_color);
+  WriteVec3(ini, "ClearColor", clear_color);
   WriteFloat(ini, "NoteSpeed", note_speed);
   WriteFloat(ini, "RainbowSpeed", rainbow_speed);
 
