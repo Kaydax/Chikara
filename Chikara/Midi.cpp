@@ -689,7 +689,7 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_not
         {
           MidiEvent event;
           event.time = static_cast<float>(time);
-          event.msg = ((cmd & 0xFF) | ((reader->readByte() & 0xFF) << 8));
+          event.msg = MAKEWORD(command, reader->readByte());
           global_misc->enqueue(event);
         }
         else
