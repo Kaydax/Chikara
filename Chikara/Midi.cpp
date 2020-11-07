@@ -1,6 +1,8 @@
 #include <Windows.h>
 #include "Midi.h"
 #include "KDMAPI.h"
+#include <fmt/locale.h>
+#include <fmt/format.h>
 
 #pragma region Midi Class
 
@@ -84,7 +86,7 @@ void Midi::loadMidi()
     parseShort();
     ppq = parseShort();
 
-    if(format == 2) throw "\nStop using fucking format 2";
+    if(format == 2) throw "\nStop fucking using format 2";
 
     uint32_t count = 0;
 
@@ -98,7 +100,7 @@ void Midi::loadMidi()
 
         if(length + pos > file_end)
         {
-          printf("warning: track runs past the end of the midi\n");
+          printf("Warning: Track runs past the end of the midi\n");
           length = file_end - pos;
         }
 
@@ -112,7 +114,7 @@ void Midi::loadMidi()
       } catch(const char* e)
       {
         int track_pos = file_stream.tellg();
-        printf("broken track, not parsing further! pos: %d\n", track_pos);
+        printf("Broken Track, not parsing further! pos: %d\n", track_pos);
         break;
       }
     }
@@ -142,7 +144,7 @@ void Midi::loadMidi()
       tc += track->tempo_events.size();
       tn++;
 
-      std::cout << "\nParsed track " << tn << " note count " << track->notes_parsed;
+      std::cout << "\nParsed track " << fmt::format(std::locale(""), "{:n}", tn) << " note count " << fmt::format(std::locale(""), "{:n}", track->notes_parsed);
       nc += (uint64_t)track->notes_parsed;
       mtx.unlock();
     });
@@ -165,8 +167,9 @@ void Midi::loadMidi()
       nc += (uint64_t)track->notes_parsed;
     }*/
 
-    std::cout << "\nTotal tempo events: " << tc;
-    std::cout << "\nTotal notes: " << nc << std::endl;
+    std::cout << "\nTotal tempo events: " << fmt::format(std::locale(""), "{:n}", tc);
+    std::cout << "\nTotal notes: " << fmt::format(std::locale(""), "{:n}", nc);
+    std::cout << "\nTotal tracks: " << fmt::format(std::locale(""), "{:n}", tn) << std::endl;
 
     note_count = nc; //Save the note count to a uint64_t so we can use it later
 
@@ -221,7 +224,7 @@ void Midi::loadMidi()
     song_len += tick_delta * tick_len;
 
     song_len /= 1000.0;
-    printf("midi time %f seconds\n", song_len);
+    std::cout << "MIDI Length: " << Utils::format_seconds(song_len) << std::endl;
 
     uint64_t tick_time = 0;
     for(int i = 0; i < track_count; i++) delete parse_tracks[i];

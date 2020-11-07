@@ -12,6 +12,7 @@
 #include <shared_mutex>
 #include "readerwriterqueue.h"
 #include "Misc.h"
+#include "Utils.h"
 
 #define PLAYBACK_TERMINATE_EVENT 0xDEADBEEF
 

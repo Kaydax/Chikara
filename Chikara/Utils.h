@@ -21,5 +21,6 @@ public:
   static void DestroyDiscord();
   rgb HSVtoRGB(float H, float S, float V);
   static std::string wstringToUtf8(std::wstring str);
+  static std::string format_seconds(double secs);
 };
 

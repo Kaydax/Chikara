@@ -69,6 +69,12 @@ void Main::run(int argc, wchar_t** argv)
   free(filename_temp);
 }
 
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+  if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+    exit(1);
+}
+
 void Main::initWindow(std::wstring midi)
 {
   glfwInit(); //Init glfw
@@ -76,9 +82,17 @@ void Main::initWindow(std::wstring midi)
   glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); //Change the ability to resize the window
   //glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE); //Window Transparancy
   auto filename = Utils::wstringToUtf8(Utils::GetFileName(midi));
-  r.window = glfwCreateWindow(default_width, default_height, std::string("Chikara | " + filename).c_str(), nullptr, nullptr); //Now we create the window
+  
+  if(Config::GetConfig().fullscreen)
+  {
+    const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+    r.window = glfwCreateWindow(mode->width, mode->height, std::string("Chikara | " + filename).c_str(), glfwGetPrimaryMonitor(), nullptr); //Now we create the window
+  } else {
+    r.window = glfwCreateWindow(default_width, default_height, std::string("Chikara | " + filename).c_str(), nullptr, nullptr); //Now we create the window
+  }
   glfwSetWindowUserPointer(r.window, &r);
   glfwSetFramebufferSizeCallback(r.window, r.framebufferResizeCallback);
+  glfwSetKeyCallback(r.window, key_callback);
 }
 
 void Main::initVulkan()

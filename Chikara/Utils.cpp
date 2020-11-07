@@ -1,4 +1,6 @@
 #include "Utils.h"
+#include <fmt/locale.h>
+#include <fmt/format.h>
 
 std::wstring Utils::GetFileName(std::filesystem::path file_path)
 {
@@ -103,4 +105,12 @@ std::string Utils::wstringToUtf8(std::wstring str)
 {
   std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
   return conv.to_bytes(str);
+}
+
+std::string Utils::format_seconds(double secs)
+{
+  if(secs >= 0)
+    return fmt::format("{}:{:04.1f}", (int)floor(secs / 60), fmod(secs, 60));
+  else
+    return fmt::format("-{}:{:04.1f}", (int)floor(-secs / 60), fmod(-secs, 60));
 }

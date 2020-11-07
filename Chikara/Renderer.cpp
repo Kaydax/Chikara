@@ -1845,14 +1845,6 @@ void Renderer::PrepareKeyboard()
   keyboard_height *= 0.55;
 }
 
-std::string format_seconds(double secs)
-{
-  if(secs >= 0)
-    return fmt::format("{}:{:04.1f}", (int)floor(secs / 60), fmod(secs, 60));
-  else
-    return fmt::format("-{}:{:04.1f}", (int)floor(-secs / 60), fmod(-secs, 60));
-}
-
 void Renderer::ImGuiFrame()
 {
   // keyboard
@@ -1924,7 +1916,7 @@ void Renderer::ImGuiFrame()
   size_t notes_alloced = 0;
   for(const auto& list : notes_shown)
     notes_alloced += list.Capacity();
-  auto time_text = format_seconds(min(midi_renderer_time->load(), song_len)) + " / " + format_seconds(song_len);
+  auto time_text = u.format_seconds(min(midi_renderer_time->load(), song_len)) + " / " + u.format_seconds(song_len);
 
   uint64_t nps = 0;
   auto saved_notes_played = *notes_played; // avoid race conditions
@@ -2007,6 +1999,7 @@ void Renderer::ImGuiFrame()
       if(ImGui::BeginTabItem("Rendering"))
       {
         ImGui::Checkbox("VSync", &Config::GetConfig().vsync);
+        ImGui::Checkbox("Fullscreen*", &Config::GetConfig().fullscreen);
         ImGui::Checkbox("Hide Overlapping Notes (only faster on overlap-heavy or sustain-heavy MIDIs)", &Config::GetConfig().note_hide);
         ImGui::Checkbox("Toggle Discord Rich Presence*", &Config::GetConfig().discord_rpc);
         ImGui::SliderFloat("Note Speed", &Config::GetConfig().note_speed, 10, 0.01);

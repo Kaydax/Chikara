@@ -16,6 +16,7 @@ public:
   std::string config_path;
 
   bool vsync = false;
+  bool fullscreen = false;
   bool note_hide = false;
   bool rainbow_bar = false;
   bool discord_rpc = true;
