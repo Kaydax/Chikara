@@ -144,7 +144,7 @@ void Midi::loadMidi()
       tc += track->tempo_events.size();
       tn++;
 
-      std::cout << "\nParsed track " << fmt::format(std::locale(""), "{:n}", tn) << " note count " << fmt::format(std::locale(""), "{:n}", track->notes_parsed);
+      std::cout << "\nParsed track: " << fmt::format(std::locale(""), "{:n}", tn) << " (" << fmt::format(std::locale(""), "{:n}", track->notes_parsed) << " notes)";
       nc += (uint64_t)track->notes_parsed;
       mtx.unlock();
     });
@@ -362,7 +362,7 @@ void Midi::LoaderThread()
   }
   delete[] tracks_ended;
   misc_events.enqueue({ static_cast<float>(seconds), PLAYBACK_TERMINATE_EVENT });
-  printf("\nloader thread exiting\n");
+  printf("\nLoader thread exiting...\n");
 }
 
 void Midi::SpawnPlaybackThread(std::chrono::steady_clock::time_point _start_time)
@@ -403,7 +403,7 @@ void Midi::PlaybackThread()
     if(stop_requested)
       break;
   }
-  printf("\nplayback thread exiting\n");
+  printf("\nPlayback thread exiting...\n");
 }
 
 #pragma endregion
@@ -734,6 +734,7 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_not
                 for(int i = 0; i < val; i++) data[i] = reader->readByte();
                 if(command2 == 0x06)
                 {
+                  //TODO: Actually do something with this please
                   data[val] = '\0';
                   //std::cout << data << std::endl;
                 }
