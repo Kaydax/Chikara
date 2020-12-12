@@ -30,6 +30,7 @@ void Config::Load(std::string& path) {
   clear_color = GetVec3(reader, "Chikara", "ClearColor", clear_color);
   note_speed = GetFloat(reader, "Chikara", "NoteSpeed", note_speed);
   rainbow_speed = GetFloat(reader, "Chikara", "RainbowSpeed", rainbow_speed);
+  start_delay = GetFloat(reader, "Chikara", "StartDelay", start_delay);
 
   config_path = path;
 }
@@ -53,6 +54,7 @@ bool Config::Save() {
   WriteVec3(ini, "ClearColor", clear_color);
   WriteFloat(ini, "NoteSpeed", note_speed);
   WriteFloat(ini, "RainbowSpeed", rainbow_speed);
+  WriteFloat(ini, "StartDelay", start_delay);
 
   fclose(ini);
 

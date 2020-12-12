@@ -24,6 +24,7 @@ public:
   glm::vec3 clear_color = glm::vec3(0.0f / 255, 0.0f / 255, 0.0f / 255);
   float note_speed = 0.15;
   float rainbow_speed = 100;
+  float start_delay = 1;
 private:
   glm::vec3 GetVec3(INIReader& reader, const std::string& section, const std::string& name, glm::vec3& default_value);
   float GetFloat(INIReader& reader, const std::string& section, const std::string& name, float& default_value);

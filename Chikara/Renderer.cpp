@@ -1781,11 +1781,11 @@ void Renderer::PrepareKeyboard()
   const auto start_note = 0;
   const auto end_note = 127;
 
-  const auto black_key_scale = 0.6f;
+  const auto black_key_scale = 0.7f;
   const auto black_key_3_offset = 0.5f;
   const auto black_key_2_offset = 0.3f;
 
-  const auto key_gap = 0.1f;
+  const auto key_gap = 0.5f;
 
   int white_key_count = 0;
   for(int i = start_note; i <= end_note; i++)
@@ -1857,7 +1857,7 @@ void Renderer::ImGuiFrame()
     auto cur_time = midi_renderer_time->load();
     //auto bar_col = IM_COL32(sinf(cur_time / 2) * 127 + 127, sinf(cur_time) * 127 + 127, sinf(cur_time * 1.5) * 127 + 127, 255);
     auto cur_color = u.HSVtoRGB((int)(cur_time * Config::GetConfig().rainbow_speed) % 360, 1, 1);
-    draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height - keyboard_height * 0.05),
+    draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height - keyboard_height * 0.55),
                              ImVec2(window_width, window_height - keyboard_height), IM_COL32(cur_color.r, cur_color.g, cur_color.b, 255));
     draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height - keyboard_height * 0.03),
                              ImVec2(window_width, window_height - keyboard_height), IM_COL32(cur_color.r / 2, cur_color.g / 2, cur_color.b / 2, 255));
@@ -1872,7 +1872,7 @@ void Renderer::ImGuiFrame()
   }
 
   // keyboard background
-  draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height), ImVec2(window_width, window_height), IM_COL32(150, 150, 150, 255));
+  draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height), ImVec2(window_width, window_height), IM_COL32(90, 90, 90, 255));
 
   // keys
   for(int i = 0; i <= 127; i++)
@@ -1881,8 +1881,8 @@ void Renderer::ImGuiFrame()
     {
       if(key_color[i] == -1)
       {
-        draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height), ImVec2(key_left[i] + key_widths[i], window_height), IM_COL32(175, 175, 175, 255), 2);
-        draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height), ImVec2(key_left[i] + key_widths[i], window_height - (keyboard_height * 0.05)), IM_COL32(255, 255, 255, 255), 2);
+        draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height), ImVec2(key_left[i] + key_widths[i], window_height), IM_COL32(145, 145, 145, 255), 2);
+        draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height), ImVec2(key_left[i] + key_widths[i], window_height - (keyboard_height * 0.045)), IM_COL32(255, 255, 240, 255), 2);
       }
       else
       {
@@ -1898,15 +1898,15 @@ void Renderer::ImGuiFrame()
       if(key_color[i] == -1)
       {
         draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height),
-                                 ImVec2(key_left[i] + key_widths[i], window_height - (keyboard_height * (45.0f / 125.0f))), IM_COL32(32, 32, 32, 255), 2);
-        draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height - (keyboard_height * 0.025)),
-                                 ImVec2(key_left[i] + key_widths[i], window_height - (keyboard_height * (45.0f / 125.0f)) - (keyboard_height * 0.025)), IM_COL32(0, 0, 0, 255), 2);
+                                 ImVec2(key_left[i] + key_widths[i], window_height - (keyboard_height * (44.0f / 125.0f))), IM_COL32(40, 40, 40, 255), 2);
+        draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height - (keyboard_height * 0.032)),
+                                 ImVec2(key_left[i] + key_widths[i], window_height - (keyboard_height * (46.0f / 125.0f)) - (keyboard_height * 0.025)), IM_COL32(5, 5, 5, 255), 2);
       }
       else
       {
         uint32_t col = darker_colors[key_color[i]];
-        draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height),
-                                 ImVec2(key_left[i] + key_widths[i], window_height - (keyboard_height * (45.0f / 125.0f))), col, 2);
+        draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height - (keyboard_height * 0.005)),
+                                 ImVec2(key_left[i] + key_widths[i], window_height - (keyboard_height * (44.0f / 125.0f))), col, 2);
       }
     }
   }
@@ -2002,6 +2002,7 @@ void Renderer::ImGuiFrame()
         ImGui::Checkbox("Fullscreen*", &Config::GetConfig().fullscreen);
         ImGui::Checkbox("Hide Overlapping Notes (only faster on overlap-heavy or sustain-heavy MIDIs)", &Config::GetConfig().note_hide);
         ImGui::Checkbox("Toggle Discord Rich Presence*", &Config::GetConfig().discord_rpc);
+        ImGui::SliderFloat("Start Delay (Seconds)*", &Config::GetConfig().start_delay, 0, 60);
         ImGui::SliderFloat("Note Speed", &Config::GetConfig().note_speed, 10, 0.01);
         ImGui::Checkbox("Rainbow Bar", &Config::GetConfig().rainbow_bar);
         ImGui::ColorEdit3("Background Color*", &Config::GetConfig().clear_color.r, ImGuiColorEditFlags_RGB);

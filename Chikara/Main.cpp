@@ -141,10 +141,10 @@ uint64_t fps = 0;
 
 void Main::mainLoop(std::wstring midi_name)
 {
-  static auto start_time = std::chrono::high_resolution_clock::now() + std::chrono::seconds(1);
+  static auto start_time = std::chrono::high_resolution_clock::now() + std::chrono::seconds((long long)Config::GetConfig().start_delay);
 
-  long long start = (std::chrono::system_clock::now().time_since_epoch() + std::chrono::seconds(1)) / std::chrono::milliseconds(1);
-  long long end_time = (std::chrono::system_clock::now().time_since_epoch() + std::chrono::seconds(1) + std::chrono::seconds((long long)midi->song_len)) / std::chrono::milliseconds(1);
+  long long start = (std::chrono::system_clock::now().time_since_epoch() + std::chrono::seconds((long long)Config::GetConfig().start_delay)) / std::chrono::milliseconds(1);
+  long long end_time = (std::chrono::system_clock::now().time_since_epoch() + std::chrono::seconds(5) + std::chrono::seconds((long long)midi->song_len)) / std::chrono::milliseconds(1);
   midi->SpawnPlaybackThread(start_time);
   /*
   char buffer[256];
