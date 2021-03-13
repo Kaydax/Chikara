@@ -12,14 +12,14 @@
     <Filter Include="Header Files\Shaders">
       <UniqueIdentifier>{24de410f-c133-412f-9f66-f287feb4cc9b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\imgui">
-      <UniqueIdentifier>{8c3e60cf-5489-47e2-b51a-48324a3da5b6}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\inih">
       <UniqueIdentifier>{0e0e3a76-282e-4c16-9859-6af47fe01733}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shader Files">
       <UniqueIdentifier>{a69bc8b6-e694-46b3-9e2d-4653f6ea3985}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="imgui">
+      <UniqueIdentifier>{8c3e60cf-5489-47e2-b51a-48324a3da5b6}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -51,22 +51,16 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\externals\imgui\imgui.cpp">
-      <Filter>Source Files\imgui</Filter>
+      <Filter>imgui</Filter>
     </ClCompile>
     <ClCompile Include="..\externals\imgui\imgui_demo.cpp">
-      <Filter>Source Files\imgui</Filter>
+      <Filter>imgui</Filter>
     </ClCompile>
     <ClCompile Include="..\externals\imgui\imgui_draw.cpp">
-      <Filter>Source Files\imgui</Filter>
+      <Filter>imgui</Filter>
     </ClCompile>
     <ClCompile Include="..\externals\imgui\imgui_widgets.cpp">
-      <Filter>Source Files\imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="..\externals\imgui\examples\imgui_impl_glfw.cpp">
-      <Filter>Source Files\imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="..\externals\imgui\examples\imgui_impl_vulkan.cpp">
-      <Filter>Source Files\imgui</Filter>
+      <Filter>imgui</Filter>
     </ClCompile>
     <ClCompile Include="Config.cpp">
       <Filter>Source Files</Filter>
@@ -85,6 +79,15 @@
     </ClCompile>
     <ClCompile Include="GlobalTime.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\externals\imgui\backends\imgui_impl_glfw.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\externals\imgui\backends\imgui_impl_vulkan.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\externals\imgui\imgui_tables.cpp">
+      <Filter>imgui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -126,6 +129,15 @@
     </ClInclude>
     <ClInclude Include="GlobalTime.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\externals\imgui\backends\imgui_impl_glfw.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\externals\imgui\backends\imgui_impl_vulkan.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\externals\imgui\imgui_internal.h">
+      <Filter>imgui</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

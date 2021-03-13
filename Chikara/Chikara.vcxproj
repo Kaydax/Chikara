@@ -25,11 +25,12 @@
     <None Include="Shaders\notes.vert" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\externals\imgui\examples\imgui_impl_glfw.cpp" />
-    <ClCompile Include="..\externals\imgui\examples\imgui_impl_vulkan.cpp" />
+    <ClCompile Include="..\externals\imgui\backends\imgui_impl_glfw.cpp" />
+    <ClCompile Include="..\externals\imgui\backends\imgui_impl_vulkan.cpp" />
     <ClCompile Include="..\externals\imgui\imgui.cpp" />
     <ClCompile Include="..\externals\imgui\imgui_demo.cpp" />
     <ClCompile Include="..\externals\imgui\imgui_draw.cpp" />
+    <ClCompile Include="..\externals\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\externals\imgui\imgui_widgets.cpp" />
     <ClCompile Include="..\externals\inih\cpp\INIReader.cpp" />
     <ClCompile Include="..\externals\inih\ini.c" />
@@ -44,6 +45,9 @@
     <ClCompile Include="Utils.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\externals\imgui\backends\imgui_impl_glfw.h" />
+    <ClInclude Include="..\externals\imgui\backends\imgui_impl_vulkan.h" />
+    <ClInclude Include="..\externals\imgui\imgui_internal.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="CustomList.h" />
     <ClInclude Include="GlobalTime.h" />
@@ -205,7 +209,7 @@
       <PreprocessorDefinitions>CHIKARA_VERSION="Alpha 5";NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)externals\discord-rpc\win64-static\include;$(SolutionDir)externals\json\include;$(SolutionDir)externals\inih;$(SolutionDir)externals\imgui;$(SolutionDir)externals\imgui\examples;$(SolutionDir)externals\readerwriterqueue;$(SolutionDir)externals\stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)externals\discord-rpc\win64-static\include;$(SolutionDir)externals\json\include;$(SolutionDir)externals\inih;$(SolutionDir)externals\imgui;$(SolutionDir)externals\imgui\backends;$(SolutionDir)externals\readerwriterqueue;$(SolutionDir)externals\stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <FloatingPointModel>Fast</FloatingPointModel>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <DisableSpecificWarnings>4996</DisableSpecificWarnings>
@@ -214,8 +218,6 @@
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <Optimization>MaxSpeed</Optimization>
       <OpenMPSupport>false</OpenMPSupport>
-      <AdditionalOptions>
-      </AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
