@@ -23,6 +23,7 @@ void Config::Load(std::string& path) {
 
   vsync = reader.GetBoolean("Chikara", "VSync", vsync);
   fullscreen = reader.GetBoolean("Chikara", "Fullscreen", fullscreen);
+  transparent = reader.GetBoolean("Chikara", "Transparent", transparent);
   note_hide = reader.GetBoolean("Chikara", "NoteHide", note_hide);
   rainbow_bar = reader.GetBoolean("Chikara", "RainbowBar", rainbow_bar);
   discord_rpc = reader.GetBoolean("Chikara", "RPC", discord_rpc);
@@ -47,6 +48,7 @@ bool Config::Save() {
 
   WriteBool(ini, "VSync", vsync);
   WriteBool(ini, "Fullscreen", fullscreen);
+  WriteBool(ini, "Transparent", transparent);
   WriteBool(ini, "NoteHide", note_hide);
   WriteBool(ini, "RainbowBar", rainbow_bar);
   WriteBool(ini, "RPC", discord_rpc);

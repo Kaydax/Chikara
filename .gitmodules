@@ -6,7 +6,7 @@
 	url = https://github.com/cameron314/readerwriterqueue
 [submodule "externals/imgui"]
 	path = externals/imgui
-	url = https://github.com/ocornut/imgui
+	url = https://github.com/Kaydax/imgui
 [submodule "externals/inih"]
 	path = externals/inih
 	url = https://github.com/benhoyt/inih

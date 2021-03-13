@@ -13,6 +13,7 @@
 #include "readerwriterqueue.h"
 #include "Misc.h"
 #include "Utils.h"
+#include "GlobalTime.h"
 
 #define PLAYBACK_TERMINATE_EVENT 0xDEADBEEF
 
@@ -134,7 +135,7 @@ class Midi
     Midi(wchar_t* file_name);
     ~Midi();
     void SpawnLoaderThread();
-    void SpawnPlaybackThread(std::chrono::steady_clock::time_point start_time);
+    void SpawnPlaybackThread(GlobalTime* _gt, long long _start_delay);
 
     moodycamel::ReaderWriterQueue<NoteEvent>** note_event_buffer;
     moodycamel::ReaderWriterQueue<MidiEvent> misc_events;
@@ -163,5 +164,6 @@ class Midi
     std::mutex mtx;
     std::thread loader_thread;
     std::thread playback_thread;
-    std::chrono::steady_clock::time_point start_time;
+    GlobalTime* gt;
+    long long start_delay;
 };

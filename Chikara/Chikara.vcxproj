@@ -34,6 +34,7 @@
     <ClCompile Include="..\externals\inih\cpp\INIReader.cpp" />
     <ClCompile Include="..\externals\inih\ini.c" />
     <ClCompile Include="Config.cpp" />
+    <ClCompile Include="GlobalTime.cpp" />
     <ClCompile Include="KDMAPI.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Midi.cpp" />
@@ -45,6 +46,7 @@
   <ItemGroup>
     <ClInclude Include="Config.h" />
     <ClInclude Include="CustomList.h" />
+    <ClInclude Include="GlobalTime.h" />
     <ClInclude Include="KDMAPI.h" />
     <ClInclude Include="Licenses.h" />
     <ClInclude Include="Main.h" />
@@ -62,7 +64,7 @@
     <VCProjectVersion>16.0</VCProjectVersion>
     <ProjectGuid>{167D8B56-CEF0-47EB-A7B3-E710B9445F14}</ProjectGuid>
     <RootNamespace>Chikara</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.19041.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -207,8 +209,13 @@
       <FloatingPointModel>Fast</FloatingPointModel>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <DisableSpecificWarnings>4996</DisableSpecificWarnings>
-      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <Optimization>MaxSpeed</Optimization>
+      <OpenMPSupport>false</OpenMPSupport>
+      <AdditionalOptions>
+      </AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -238,16 +245,20 @@
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="..\packages\glfw.3.3.2\build\native\glfw.targets" Condition="Exists('..\packages\glfw.3.3.2\build\native\glfw.targets')" />
     <Import Project="..\packages\glm.0.9.9.800\build\native\glm.targets" Condition="Exists('..\packages\glm.0.9.9.800\build\native\glm.targets')" />
+    <Import Project="..\packages\freetype.redist.2.8.0.1\build\native\freetype.redist.targets" Condition="Exists('..\packages\freetype.redist.2.8.0.1\build\native\freetype.redist.targets')" />
+    <Import Project="..\packages\freetype.2.8.0.1\build\native\freetype.targets" Condition="Exists('..\packages\freetype.2.8.0.1\build\native\freetype.targets')" />
+    <Import Project="..\packages\glfw.3.3.3\build\native\glfw.targets" Condition="Exists('..\packages\glfw.3.3.3\build\native\glfw.targets')" />
     <Import Project="..\packages\fmt.6.1.2\build\fmt.targets" Condition="Exists('..\packages\fmt.6.1.2\build\fmt.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
-    <Error Condition="!Exists('..\packages\glfw.3.3.2\build\native\glfw.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\glfw.3.3.2\build\native\glfw.targets'))" />
     <Error Condition="!Exists('..\packages\glm.0.9.9.800\build\native\glm.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\glm.0.9.9.800\build\native\glm.targets'))" />
+    <Error Condition="!Exists('..\packages\freetype.redist.2.8.0.1\build\native\freetype.redist.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\freetype.redist.2.8.0.1\build\native\freetype.redist.targets'))" />
+    <Error Condition="!Exists('..\packages\freetype.2.8.0.1\build\native\freetype.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\freetype.2.8.0.1\build\native\freetype.targets'))" />
+    <Error Condition="!Exists('..\packages\glfw.3.3.3\build\native\glfw.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\glfw.3.3.3\build\native\glfw.targets'))" />
     <Error Condition="!Exists('..\packages\fmt.6.1.2\build\fmt.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\fmt.6.1.2\build\fmt.targets'))" />
   </Target>
 </Project>

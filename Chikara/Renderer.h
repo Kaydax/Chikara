@@ -14,7 +14,6 @@
 #include <iostream>
 #include <stdexcept>
 #include <functional>
-#include <optional>
 #include <cstdlib>
 #include <vector>
 #include <map>
@@ -26,6 +25,7 @@
 #include <stack>
 #include "Midi.h"
 #include "CustomList.h"
+#include "GlobalTime.h"
 
 #pragma endregion
 
@@ -75,12 +75,14 @@ struct ImGuiStat
 
 struct QueueFamilyIndices
 {
-  std::optional<uint32_t> graphics_fam;
-  std::optional<uint32_t> present_fam;
+  uint32_t graphics_fam;
+  uint32_t present_fam;
+  bool has_graphics_fam = false;
+  bool has_present_fam = false;
 
   bool isComplete()
   {
-    return graphics_fam.has_value() && present_fam.has_value();
+    return has_graphics_fam && has_present_fam;
   }
 };
 
@@ -109,9 +111,9 @@ struct Vertex
     return binding_description;
   }
 
-  static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions()
+  static std::array<VkVertexInputAttributeDescription, VERTEX_ATTRIB_COUNT> getAttributeDescriptions()
   {
-    std::array<VkVertexInputAttributeDescription, VERTEX_ATTRIB_COUNT> attrib_descriptions = {};
+    std::array<VkVertexInputAttributeDescription, VERTEX_ATTRIB_COUNT> attrib_descriptions{};
     attrib_descriptions[0].binding = VERTEX_BUFFER_BIND_ID;
     attrib_descriptions[0].location = 0;
     attrib_descriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -127,7 +129,7 @@ struct Vertex
     //attrib_descriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
     //attrib_descriptions[2].offset = offsetof(Vertex, color);
 
-    return std::vector(attrib_descriptions.begin(), attrib_descriptions.end());
+    return attrib_descriptions;
   }
 };
 
@@ -142,7 +144,7 @@ struct NoteData {
 
   static VkVertexInputBindingDescription getBindingDescription()
   {
-    VkVertexInputBindingDescription binding_description = {};
+    VkVertexInputBindingDescription binding_description{};
     binding_description.binding = VERTEX_BUFFER_BIND_ID;
     binding_description.stride = sizeof(NoteData);
     binding_description.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
@@ -153,7 +155,7 @@ struct NoteData {
   static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions()
   {
     // this will always be appended to Vertex, so locations are offset
-    std::array<VkVertexInputAttributeDescription, NOTE_ATTRIB_COUNT> attrib_descriptions = {};
+    std::array<VkVertexInputAttributeDescription, NOTE_ATTRIB_COUNT> attrib_descriptions{};
     attrib_descriptions[0].binding = VERTEX_BUFFER_BIND_ID;
     attrib_descriptions[0].location = 0;
     attrib_descriptions[0].format = VK_FORMAT_R32_SFLOAT;

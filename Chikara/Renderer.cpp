@@ -41,6 +41,7 @@ glm::vec3 colors[16] = {
 uint32_t colors_packed[16];
 uint32_t dark_colors[16];
 uint32_t darker_colors[16];
+uint32_t darkerer_colors[16];
 
 // memcmped against to check if the screen is completely covered
 bool full_note_depth_buffer[NOTE_DEPTH_BUFFER_SIZE];
@@ -52,6 +53,7 @@ Renderer::Renderer()
     colors_packed[i] = encode_color(colors[i]);
     dark_colors[i] = encode_color(colors[i] * glm::vec3(0.8));
     darker_colors[i] = encode_color(colors[i] * glm::vec3(0.7));
+    darkerer_colors[i] = encode_color(colors[i] * glm::vec3(0.5));
   }
   memset(key_color, 0xFFFFFFFF, sizeof(key_color));
   memset(full_note_depth_buffer, 0x01010101, sizeof(full_note_depth_buffer));
@@ -67,7 +69,7 @@ void Renderer::createInstance()
     throw std::runtime_error("VKERR: Validation Layer requested, but it seems it's not available!");
   }
 
-  VkApplicationInfo app_info = {};
+  VkApplicationInfo app_info{};
   app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
   app_info.pApplicationName = "Chikara";
   app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -80,7 +82,7 @@ void Renderer::createInstance()
 
   glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-  VkInstanceCreateInfo create_info = {};
+  VkInstanceCreateInfo create_info{};
   create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   create_info.pApplicationInfo = &app_info;
   auto extensions = getRequiredExtensions();
@@ -124,7 +126,7 @@ void Renderer::setupDebugMessenger()
 {
   if(!enable_validation_layers) return;
 
-  VkDebugUtilsMessengerCreateInfoEXT create_info = {};
+  VkDebugUtilsMessengerCreateInfoEXT create_info{};
   populateDebugMessengerCreateInfo(create_info);
 
   if(CreateDebugUtilsMessengerEXT(inst, &create_info, nullptr, &debug_msg) != VK_SUCCESS)
@@ -183,12 +185,12 @@ void Renderer::createLogicalDevice()
   QueueFamilyIndices indis = findQueueFamilies(pdevice);
 
   std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
-  std::set<uint32_t> unique_queue_fams = { indis.graphics_fam.value(), indis.present_fam.value() };
+  std::set<uint32_t> unique_queue_fams = { indis.graphics_fam, indis.present_fam };
 
   float queue_priority = 1.0f;
   for(uint32_t queue_fam : unique_queue_fams)
   {
-    VkDeviceQueueCreateInfo queue_create_info = {};
+    VkDeviceQueueCreateInfo queue_create_info{};
     queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     queue_create_info.queueFamilyIndex = queue_fam;
     queue_create_info.queueCount = 1;
@@ -196,10 +198,10 @@ void Renderer::createLogicalDevice()
     queue_create_infos.push_back(queue_create_info);
   }
 
-  VkPhysicalDeviceFeatures device_feats = {};
+  VkPhysicalDeviceFeatures device_feats{};
   device_feats.geometryShader = true; // if your gpu supports vulkan there's no way it doesn't support geometry shaders
 
-  VkDeviceCreateInfo create_info = {};
+  VkDeviceCreateInfo create_info{};
   create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
   create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
   create_info.pQueueCreateInfos = queue_create_infos.data();
@@ -222,10 +224,10 @@ void Renderer::createLogicalDevice()
     throw std::runtime_error("failed to create logical device!");
   }
 
-  vkGetDeviceQueue(device, indis.graphics_fam.value(), 0, &graphics_queue);
-  vkGetDeviceQueue(device, indis.present_fam.value(), 0, &present_queue);
+  vkGetDeviceQueue(device, indis.graphics_fam, 0, &graphics_queue);
+  vkGetDeviceQueue(device, indis.present_fam, 0, &present_queue);
 
-  VkPhysicalDeviceProperties physical_properties = {};
+  VkPhysicalDeviceProperties physical_properties{};
   vkGetPhysicalDeviceProperties(pdevice, &physical_properties);
   fprintf(stdout, "\nGPU: %s\n", physical_properties.deviceName);
 }
@@ -249,7 +251,7 @@ void Renderer::createSwapChain()
     image_count = swap_chain_support.capabilities.maxImageCount;
   }
 
-  VkSwapchainCreateInfoKHR create_info = {};
+  VkSwapchainCreateInfoKHR create_info{};
   create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
   create_info.surface = surface; //The drawing surface we are using
   create_info.minImageCount = image_count; //The minimum amount of images in the swap chain
@@ -260,7 +262,7 @@ void Renderer::createSwapChain()
   create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
   QueueFamilyIndices indis = findQueueFamilies(pdevice);
-  uint32_t queue_fam_indis[] = { indis.graphics_fam.value(), indis.present_fam.value() };
+  uint32_t queue_fam_indis[] = { indis.graphics_fam, indis.present_fam };
 
   if(indis.graphics_fam != indis.present_fam)
   {
@@ -373,7 +375,7 @@ void Renderer::createImageViews()
 void Renderer::createRenderPass(VkRenderPass* pass, bool has_depth, VkAttachmentLoadOp load_op, VkImageLayout initial_layout, VkImageLayout final_layout, VkAttachmentLoadOp depth_load_op, VkImageLayout depth_initial_layout, VkImageLayout depth_final_layout)
 {
   //Setup the color attachment
-  VkAttachmentDescription color_attachment = {};
+  VkAttachmentDescription color_attachment{};
   color_attachment.format = swap_chain_img_format;
   color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
   color_attachment.loadOp = load_op;
@@ -383,7 +385,7 @@ void Renderer::createRenderPass(VkRenderPass* pass, bool has_depth, VkAttachment
   color_attachment.initialLayout = initial_layout;
   color_attachment.finalLayout = final_layout;
 
-  VkAttachmentDescription depth_attachment = {};
+  VkAttachmentDescription depth_attachment{};
   if(has_depth)
   {
     depth_attachment.format = findDepthFormat();
@@ -396,11 +398,11 @@ void Renderer::createRenderPass(VkRenderPass* pass, bool has_depth, VkAttachment
     depth_attachment.finalLayout = depth_final_layout;
   }
 
-  VkAttachmentReference color_attachment_ref = {};
+  VkAttachmentReference color_attachment_ref{};
   color_attachment_ref.attachment = 0;
   color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-  VkAttachmentReference depth_attachment_ref = {};
+  VkAttachmentReference depth_attachment_ref{};
   if(has_depth)
   {
     depth_attachment_ref.attachment = 1;
@@ -408,14 +410,14 @@ void Renderer::createRenderPass(VkRenderPass* pass, bool has_depth, VkAttachment
   }
 
   //Subpasses
-  VkSubpassDescription subpass = {};
+  VkSubpassDescription subpass{};
   subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
   subpass.colorAttachmentCount = 1;
   subpass.pColorAttachments = &color_attachment_ref;
   if(has_depth)
     subpass.pDepthStencilAttachment = &depth_attachment_ref;
 
-  VkSubpassDependency dependency = {};
+  VkSubpassDependency dependency{};
   dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
   dependency.dstSubpass = 0;
   dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -425,7 +427,7 @@ void Renderer::createRenderPass(VkRenderPass* pass, bool has_depth, VkAttachment
 
   //Create the render pass object
   std::array<VkAttachmentDescription, 2> attachments = { color_attachment, depth_attachment };
-  VkRenderPassCreateInfo render_pass_info = {};
+  VkRenderPassCreateInfo render_pass_info{};
   render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
   render_pass_info.subpassCount = 1;
   render_pass_info.pSubpasses = &subpass;
@@ -454,14 +456,14 @@ void Renderer::createRenderPass(VkRenderPass* pass, bool has_depth, VkAttachment
 
 void Renderer::createDescriptorSetLayout()
 {
-  VkDescriptorSetLayoutBinding ubo_layout_binding = {};
+  VkDescriptorSetLayoutBinding ubo_layout_binding{};
   ubo_layout_binding.binding = 0;
   ubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
   ubo_layout_binding.descriptorCount = 1;
   ubo_layout_binding.stageFlags = VK_SHADER_STAGE_GEOMETRY_BIT;
   ubo_layout_binding.pImmutableSamplers = nullptr; // Optional
 
-  VkDescriptorSetLayoutBinding sampler_layout_binding = {};
+  VkDescriptorSetLayoutBinding sampler_layout_binding{};
   sampler_layout_binding.binding = 1;
   sampler_layout_binding.descriptorCount = 1;
   sampler_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -470,7 +472,7 @@ void Renderer::createDescriptorSetLayout()
 
   std::array<VkDescriptorSetLayoutBinding, 2> bindings = { ubo_layout_binding, sampler_layout_binding };
 
-  VkDescriptorSetLayoutCreateInfo layout_info = {};
+  VkDescriptorSetLayoutCreateInfo layout_info{};
   layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
   layout_info.bindingCount = static_cast<uint32_t>(bindings.size());
   layout_info.pBindings = bindings.data();
@@ -483,13 +485,13 @@ void Renderer::createDescriptorSetLayout()
 
 void Renderer::createDescriptorPool()
 {
-  std::array<VkDescriptorPoolSize, 2> pool_sizes = {};
+  std::array<VkDescriptorPoolSize, 2> pool_sizes{};
   pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
   pool_sizes[0].descriptorCount = static_cast<uint32_t>(swap_chain_imgs.size());
   pool_sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
   pool_sizes[1].descriptorCount = static_cast<uint32_t>(swap_chain_imgs.size());
 
-  VkDescriptorPoolCreateInfo pool_info = {};
+  VkDescriptorPoolCreateInfo pool_info{};
   pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
   pool_info.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
   pool_info.pPoolSizes = pool_sizes.data();
@@ -518,7 +520,7 @@ void Renderer::createImGuiDescriptorPool()
       { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
   };
 
-  VkDescriptorPoolCreateInfo pool_info = {};
+  VkDescriptorPoolCreateInfo pool_info{};
   pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
   pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
   pool_info.maxSets = 1000 * IM_ARRAYSIZE(pool_sizes);
@@ -532,7 +534,7 @@ void Renderer::createImGuiDescriptorPool()
 void Renderer::createDescriptorSets()
 {
   std::vector<VkDescriptorSetLayout> layouts(swap_chain_imgs.size(), descriptor_set_layout);
-  VkDescriptorSetAllocateInfo alloc_info = {};
+  VkDescriptorSetAllocateInfo alloc_info{};
   alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
   alloc_info.descriptorPool = descriptor_pool;
   alloc_info.descriptorSetCount = static_cast<uint32_t>(swap_chain_imgs.size());
@@ -546,20 +548,20 @@ void Renderer::createDescriptorSets()
 
   for(size_t i = 0; i < swap_chain_imgs.size(); i++)
   {
-    VkDescriptorBufferInfo buffer_info = {};
+    VkDescriptorBufferInfo buffer_info{};
     buffer_info.buffer = uniform_buffers[i];
     buffer_info.offset = 0;
     buffer_info.range = sizeof(UniformBufferObject);
 
     /*
-    VkDescriptorImageInfo img_info = {};
+    VkDescriptorImageInfo img_info{};
     img_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     img_info.imageView = tex_img_view;
     img_info.sampler = tex_sampler;
     */
 
     // remember to change this to 2 if uncommenting the other code
-    std::array<VkWriteDescriptorSet, 1> descriptor_writes = {};
+    std::array<VkWriteDescriptorSet, 1> descriptor_writes{};
     descriptor_writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptor_writes[0].dstSet = descriptor_sets[i];
     descriptor_writes[0].dstBinding = 0;
@@ -595,19 +597,19 @@ void Renderer::createGraphicsPipeline(const char* vert_spv, size_t vert_spv_leng
   VkShaderModule geom_shader_module = createShaderModule(geom_spv, geom_spv_length);
 
   //Now to actually use the shaders we have to assign it to a pipeline stage
-  VkPipelineShaderStageCreateInfo vert_shader_stage_info = {};
+  VkPipelineShaderStageCreateInfo vert_shader_stage_info{};
   vert_shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
   vert_shader_stage_info.stage = VK_SHADER_STAGE_VERTEX_BIT; //Assign the vertex shader to the vertex pipeline stage
   vert_shader_stage_info.module = vert_shader_module; //The module that contains the shader code
   vert_shader_stage_info.pName = "main"; //The function to invoke when reading the shader code
 
-  VkPipelineShaderStageCreateInfo frag_shader_stage_info = {};
+  VkPipelineShaderStageCreateInfo frag_shader_stage_info{};
   frag_shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
   frag_shader_stage_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT; //Assign the fragment shader to the fragment pipeline stage
   frag_shader_stage_info.module = frag_shader_module; //The module that contains the shader code
   frag_shader_stage_info.pName = "main"; //The function to invoke when reading the shader code
 
-  VkPipelineShaderStageCreateInfo geom_shader_stage_info = {};
+  VkPipelineShaderStageCreateInfo geom_shader_stage_info{};
   geom_shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
   geom_shader_stage_info.stage = VK_SHADER_STAGE_GEOMETRY_BIT;
   geom_shader_stage_info.module = geom_shader_module;
@@ -620,7 +622,7 @@ void Renderer::createGraphicsPipeline(const char* vert_spv, size_t vert_spv_leng
   auto attrib_desc = NoteData::getAttributeDescriptions();
 
   //Describe the format of the vertex data that will be passed to the vertex shader
-  VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
+  VkPipelineVertexInputStateCreateInfo vertex_input_info{};
   vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
   vertex_input_info.vertexBindingDescriptionCount = 1;
   vertex_input_info.pVertexBindingDescriptions = &bind_desc;
@@ -628,13 +630,13 @@ void Renderer::createGraphicsPipeline(const char* vert_spv, size_t vert_spv_leng
   vertex_input_info.pVertexAttributeDescriptions = attrib_desc.data();
 
   //Describe the input assembly modes
-  VkPipelineInputAssemblyStateCreateInfo input_assembly = {};
+  VkPipelineInputAssemblyStateCreateInfo input_assembly{};
   input_assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
   input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST; // TODO: this is definitely going to catch us off-guard later
   input_assembly.primitiveRestartEnable = VK_FALSE; //If true, it allows us to break up lines and triangles in the _STRIP topology modes
 
   //Setup the viewport
-  VkViewport viewport = {};
+  VkViewport viewport{};
   viewport.x = 0.0f; //Should always be 0
   viewport.y = 0.0f; //Should always be 0
   viewport.width = (float)swap_chain_extent.width; //The width and height should be the swap chain extend width and height because of the fact it may differ from the window's width and height
@@ -643,12 +645,12 @@ void Renderer::createGraphicsPipeline(const char* vert_spv, size_t vert_spv_leng
   viewport.maxDepth = 1.0f;
 
   //A scissor is just a filter that makes the rasterizer discard any pixels being rendered outside of it
-  VkRect2D scissor = {};
+  VkRect2D scissor{};
   scissor.offset = { 0, 0 };
   scissor.extent = swap_chain_extent;
 
   //Combine the viewport and the scissor into the viewport state
-  VkPipelineViewportStateCreateInfo viewport_state = {};
+  VkPipelineViewportStateCreateInfo viewport_state{};
   viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
   viewport_state.viewportCount = 1;
   viewport_state.pViewports = &viewport;
@@ -656,7 +658,7 @@ void Renderer::createGraphicsPipeline(const char* vert_spv, size_t vert_spv_leng
   viewport_state.pScissors = &scissor;
 
   //Create the rasterizer
-  VkPipelineRasterizationStateCreateInfo rasterizer = {};
+  VkPipelineRasterizationStateCreateInfo rasterizer{};
   rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
   rasterizer.depthClampEnable = VK_FALSE; //If true, then fragments beyond the near/far planes are clamped to them as opposed to discarding them. Useful for creating shadow maps
   rasterizer.rasterizerDiscardEnable = VK_FALSE; //If true, geometry never passes through the rasterizer stage, basically disabling any output to the framebuffer
@@ -670,7 +672,7 @@ void Renderer::createGraphicsPipeline(const char* vert_spv, size_t vert_spv_leng
   rasterizer.depthBiasSlopeFactor = 0.0f; // Optional
 
   //Multi-sampling (Anti-aliasing)
-  VkPipelineMultisampleStateCreateInfo multisampling = {};
+  VkPipelineMultisampleStateCreateInfo multisampling{};
   multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
   multisampling.sampleShadingEnable = VK_FALSE;
   multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
@@ -680,7 +682,7 @@ void Renderer::createGraphicsPipeline(const char* vert_spv, size_t vert_spv_leng
   multisampling.alphaToOneEnable = VK_FALSE; // Optional
 
   //Depth Stencil
-  VkPipelineDepthStencilStateCreateInfo depth_stencil = {};
+  VkPipelineDepthStencilStateCreateInfo depth_stencil{};
   depth_stencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
   depth_stencil.depthTestEnable = VK_TRUE;
   depth_stencil.depthWriteEnable = VK_TRUE;
@@ -689,7 +691,7 @@ void Renderer::createGraphicsPipeline(const char* vert_spv, size_t vert_spv_leng
   depth_stencil.stencilTestEnable = VK_FALSE;
 
   //Color blending
-  VkPipelineColorBlendAttachmentState color_blend_attachment = {};
+  VkPipelineColorBlendAttachmentState color_blend_attachment{};
   color_blend_attachment.blendEnable = VK_TRUE;
   color_blend_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
   color_blend_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
@@ -699,7 +701,7 @@ void Renderer::createGraphicsPipeline(const char* vert_spv, size_t vert_spv_leng
   color_blend_attachment.alphaBlendOp = VK_BLEND_OP_ADD;
   color_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
-  VkPipelineColorBlendStateCreateInfo color_blending = {};
+  VkPipelineColorBlendStateCreateInfo color_blending{};
   color_blending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
   color_blending.logicOpEnable = VK_FALSE;
   color_blending.logicOp = VK_LOGIC_OP_COPY; // Optional
@@ -711,7 +713,7 @@ void Renderer::createGraphicsPipeline(const char* vert_spv, size_t vert_spv_leng
   color_blending.blendConstants[3] = 0.0f; // Optional
 
   //Create the pipeline layout
-  VkPipelineLayoutCreateInfo pipeline_layout_info = {};
+  VkPipelineLayoutCreateInfo pipeline_layout_info{};
   pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
   pipeline_layout_info.setLayoutCount = 1; // Optional
   pipeline_layout_info.pSetLayouts = &descriptor_set_layout; // Optional
@@ -728,7 +730,7 @@ void Renderer::createGraphicsPipeline(const char* vert_spv, size_t vert_spv_leng
   }
 
   //Create the pipeline. All of the inputs should be obvious
-  VkGraphicsPipelineCreateInfo pipeline_info = {};
+  VkGraphicsPipelineCreateInfo pipeline_info{};
   pipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
   pipeline_info.stageCount = 3;
   pipeline_info.pStages = shader_stages;
@@ -762,7 +764,7 @@ void Renderer::createGraphicsPipeline(const char* vert_spv, size_t vert_spv_leng
 
 VkShaderModule Renderer::createShaderModule(const char* code, size_t length)
 {
-  VkShaderModuleCreateInfo create_info = {};
+  VkShaderModuleCreateInfo create_info{};
   create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
   create_info.codeSize = length;
   create_info.pCode = reinterpret_cast<const uint32_t*>(code);
@@ -782,7 +784,7 @@ VkShaderModule Renderer::createShaderModule(const char* code, size_t length)
 
 void Renderer::createPipelineCache()
 {
-  VkPipelineCacheCreateInfo info = {};
+  VkPipelineCacheCreateInfo info{};
   info.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
   // everything else is 0, this doesn't actually cache anything
 
@@ -819,7 +821,7 @@ void Renderer::createFramebuffers()
         depth_img_view
     };
 
-    VkFramebufferCreateInfo framebuffer_info = {};
+    VkFramebufferCreateInfo framebuffer_info{};
     framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     framebuffer_info.renderPass = note_render_pass;
     framebuffer_info.attachmentCount = static_cast<uint32_t>(attachments.size());
@@ -841,7 +843,7 @@ void Renderer::createImGuiFramebuffers()
 
   for(size_t i = 0; i < swap_chain_img_views.size(); i++)
   {
-    VkFramebufferCreateInfo framebuffer_info = {};
+    VkFramebufferCreateInfo framebuffer_info{};
     framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     framebuffer_info.renderPass = imgui_render_pass;
     framebuffer_info.attachmentCount = 1;
@@ -863,9 +865,9 @@ void Renderer::createCommandPool(VkCommandPool* pool, VkCommandPoolCreateFlags f
 {
   QueueFamilyIndices queue_fam_indis = findQueueFamilies(pdevice);
 
-  VkCommandPoolCreateInfo pool_info = {};
+  VkCommandPoolCreateInfo pool_info{};
   pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-  pool_info.queueFamilyIndex = queue_fam_indis.graphics_fam.value();
+  pool_info.queueFamilyIndex = queue_fam_indis.graphics_fam;
   pool_info.flags = flags;
 
   if(vkCreateCommandPool(device, &pool_info, nullptr, pool) != VK_SUCCESS)
@@ -924,7 +926,7 @@ void Renderer::createTextureImageView()
 
 void Renderer::createTextureSampler()
 {
-  VkSamplerCreateInfo sampler_info = {};
+  VkSamplerCreateInfo sampler_info{};
   sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
   sampler_info.magFilter = VK_FILTER_LINEAR;
   sampler_info.minFilter = VK_FILTER_LINEAR;
@@ -950,7 +952,7 @@ void Renderer::createTextureSampler()
 
 void Renderer::createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& img, VkDeviceMemory& img_mem)
 {
-  VkImageCreateInfo img_info = {};
+  VkImageCreateInfo img_info{};
   img_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   img_info.imageType = VK_IMAGE_TYPE_2D;
   img_info.extent.width = width;
@@ -973,7 +975,7 @@ void Renderer::createImage(uint32_t width, uint32_t height, VkFormat format, VkI
   VkMemoryRequirements mem_reqs;
   vkGetImageMemoryRequirements(device, img, &mem_reqs);
 
-  VkMemoryAllocateInfo alloc_info = {};
+  VkMemoryAllocateInfo alloc_info{};
   alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
   alloc_info.allocationSize = mem_reqs.size;
   alloc_info.memoryTypeIndex = findMemoryType(mem_reqs.memoryTypeBits, properties);
@@ -990,7 +992,7 @@ void Renderer::transitionImageLayout(VkImage img, VkFormat format, VkImageLayout
 {
   VkCommandBuffer cmd_buffer = beginSingleTimeCommands();
 
-  VkImageMemoryBarrier barrier = {};
+  VkImageMemoryBarrier barrier{};
   barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
   barrier.oldLayout = old_layout;
   barrier.newLayout = new_layout;
@@ -1175,7 +1177,7 @@ void Renderer::createNoteUniformBuffers()
 
 void Renderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& buffer_mem)
 {
-  VkBufferCreateInfo buffer_info = {};
+  VkBufferCreateInfo buffer_info{};
   buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   buffer_info.size = size;
   buffer_info.usage = usage;
@@ -1189,7 +1191,7 @@ void Renderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemor
   VkMemoryRequirements mem_reqs;
   vkGetBufferMemoryRequirements(device, buffer, &mem_reqs);
 
-  VkMemoryAllocateInfo alloc_info = {};
+  VkMemoryAllocateInfo alloc_info{};
   alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
   alloc_info.allocationSize = mem_reqs.size;
   alloc_info.memoryTypeIndex = findMemoryType(mem_reqs.memoryTypeBits, properties);
@@ -1206,7 +1208,7 @@ void Renderer::copyBuffer(VkBuffer src_buffer, VkBuffer dst_buffer, VkDeviceSize
 {
   VkCommandBuffer cmd_buffer = beginSingleTimeCommands();
 
-  VkBufferCopy copy_region = {};
+  VkBufferCopy copy_region{};
   copy_region.size = size;
   vkCmdCopyBuffer(cmd_buffer, src_buffer, dst_buffer, 1, &copy_region);
 
@@ -1219,7 +1221,7 @@ void Renderer::createCommandBuffers()
   auto additional_pass_offset = swap_chain_framebuffers.size() * MAX_NOTES_MULT;
   cmd_buffers.resize(additional_pass_offset * 2);
 
-  VkCommandBufferAllocateInfo alloc_info = {};
+  VkCommandBufferAllocateInfo alloc_info{};
   alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   alloc_info.commandPool = cmd_pool;
   alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -1237,7 +1239,7 @@ void Renderer::createCommandBuffers()
     {
       for(size_t note_buf_idx = 0; note_buf_idx < MAX_NOTES_MULT; note_buf_idx++)
       {
-        VkCommandBufferBeginInfo begin_info = {};
+        VkCommandBufferBeginInfo begin_info{};
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
         if(vkBeginCommandBuffer(cmd_buffers[additional_pass_offset + note_buf_idx + swap_chain * MAX_NOTES_MULT], &begin_info) != VK_SUCCESS)
@@ -1246,7 +1248,7 @@ void Renderer::createCommandBuffers()
         }
 
         //Start the render pass
-        VkRenderPassBeginInfo render_pass_info = {};
+        VkRenderPassBeginInfo render_pass_info{};
         render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
         render_pass_info.renderPass = pass ? note_render_pass : additional_note_render_pass;
         render_pass_info.framebuffer = swap_chain_framebuffers[swap_chain]; //Create a framebuffer for each swap chain image
@@ -1254,8 +1256,8 @@ void Renderer::createCommandBuffers()
         render_pass_info.renderArea.extent = swap_chain_extent; //Render area defines where shader loads and stores take place. Anything outside this area are undefined, allowing for better performance
 
         glm::vec3 clear_color = Config::GetConfig().clear_color;
-        std::array<VkClearValue, 2> clear_values = {};
-        clear_values[0].color = { clear_color.r, clear_color.g, clear_color.b, 1.0f };
+        std::array<VkClearValue, 2> clear_values{};
+        clear_values[0].color = { clear_color.r, clear_color.g, clear_color.b, Config::GetConfig().transparent ? 0.0f : 1.0f };
         clear_values[1].depthStencil = { 1.0f, 0 };
 
         render_pass_info.clearValueCount = static_cast<uint32_t>(clear_values.size());
@@ -1291,7 +1293,7 @@ void Renderer::createImGuiCommandBuffers()
   //Allocate the command buffer
   imgui_cmd_buffers.resize(swap_chain_framebuffers.size());
 
-  VkCommandBufferAllocateInfo alloc_info = {};
+  VkCommandBufferAllocateInfo alloc_info{};
   alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   alloc_info.commandPool = imgui_cmd_pool;
   alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -1312,10 +1314,10 @@ void Renderer::createSyncObjects()
   in_flight_fences.resize(max_frames_in_flight);
   imgs_in_flight.resize(swap_chain_imgs.size(), VK_NULL_HANDLE);
 
-  VkSemaphoreCreateInfo semaphore_info = {};
+  VkSemaphoreCreateInfo semaphore_info{};
   semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-  VkFenceCreateInfo fence_info = {};
+  VkFenceCreateInfo fence_info{};
   fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
   fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
@@ -1339,7 +1341,7 @@ void Renderer::createSyncObjects()
 
 void Renderer::submitSingleCommandBuffer(VkCommandBuffer cmds)
 {
-  VkSubmitInfo submit_info = {};
+  VkSubmitInfo submit_info{};
   submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
   // no need for wait semaphores since only one command buffer can be run at a time due to these fences
@@ -1528,7 +1530,7 @@ void Renderer::drawFrame(float time)
   //vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
   //vkResetFences(device, 1, &in_flight_fences[current_frame]);
 
-  size_t key_indices[256] = {};
+  size_t key_indices[256]{};
   size_t cur_offset = 0;
   // yep, this iterates over the keys twice...
   for(int i = 0; i < 256; i++)
@@ -1681,12 +1683,12 @@ void Renderer::drawFrame(float time)
   ImGui::Render();
 
   {
-    VkCommandBufferBeginInfo begin_info = {};
+    VkCommandBufferBeginInfo begin_info{};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(imgui_cmd_buffers[img_index], &begin_info);
 
-    VkRenderPassBeginInfo render_pass_info = {};
+    VkRenderPassBeginInfo render_pass_info{};
     render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     render_pass_info.renderPass = imgui_render_pass;
     render_pass_info.framebuffer = imgui_swap_chain_framebuffers[img_index];
@@ -1708,7 +1710,7 @@ void Renderer::drawFrame(float time)
   }
 
   //Submit to the command buffer
-  VkSubmitInfo submit_info = {};
+  VkSubmitInfo submit_info{};
   submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
   std::array<VkCommandBuffer, 2> command_buffers = { last_note_cmdbuf, imgui_cmd_buffers[img_index] };
@@ -1735,7 +1737,7 @@ void Renderer::drawFrame(float time)
   }
 
   //Presentation
-  VkPresentInfoKHR present_info = {};
+  VkPresentInfoKHR present_info{};
   present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
   present_info.waitSemaphoreCount = 1;
   present_info.pWaitSemaphores = &render_fin_semaphore[current_frame];
@@ -1857,18 +1859,26 @@ void Renderer::ImGuiFrame()
     auto cur_time = midi_renderer_time->load();
     //auto bar_col = IM_COL32(sinf(cur_time / 2) * 127 + 127, sinf(cur_time) * 127 + 127, sinf(cur_time * 1.5) * 127 + 127, 255);
     auto cur_color = u.HSVtoRGB((int)(cur_time * Config::GetConfig().rainbow_speed) % 360, 1, 1);
-    draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height - keyboard_height * 0.55),
-                             ImVec2(window_width, window_height - keyboard_height), IM_COL32(cur_color.r, cur_color.g, cur_color.b, 255));
-    draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height - keyboard_height * 0.03),
-                             ImVec2(window_width, window_height - keyboard_height), IM_COL32(cur_color.r / 2, cur_color.g / 2, cur_color.b / 2, 255));
+    draw_list->AddRectFilledMultiColor(ImVec2(0, window_height - keyboard_height - keyboard_height * 0.05),
+                             ImVec2(window_width, window_height - keyboard_height), 
+                                       IM_COL32(cur_color.r, cur_color.g, cur_color.b, 255),
+                                       IM_COL32(cur_color.r, cur_color.g, cur_color.b, 255),
+                                       IM_COL32(cur_color.r / 2, cur_color.g / 2, cur_color.b / 2, 255),
+                                       IM_COL32(cur_color.r / 2, cur_color.g / 2, cur_color.b / 2, 255));
+    //draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height - keyboard_height * 0.03),
+    //                         ImVec2(window_width, window_height - keyboard_height), IM_COL32(cur_color.r / 2, cur_color.g / 2, cur_color.b / 2, 255));
   }
   else
   {
     const auto bar_color = Config::GetConfig().bar_color;
-    draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height - keyboard_height * 0.05),
-                             ImVec2(window_width, window_height - keyboard_height), IM_COL32(bar_color.r * 255, bar_color.g * 255, bar_color.b * 255, 255));
-    draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height - keyboard_height * 0.03),
-                             ImVec2(window_width, window_height - keyboard_height), IM_COL32(bar_color.r * 255 / 2, bar_color.g * 255 / 2, bar_color.b * 255 / 2, 255));
+    draw_list->AddRectFilledMultiColor(ImVec2(0, window_height - keyboard_height - keyboard_height * 0.05),
+                             ImVec2(window_width, window_height - keyboard_height), 
+                                       IM_COL32(bar_color.r * 255, bar_color.g * 255, bar_color.b * 255, 255), 
+                                       IM_COL32(bar_color.r * 255, bar_color.g * 255, bar_color.b * 255, 255),
+                                       IM_COL32(bar_color.r * 255 / 2, bar_color.g * 255 / 2, bar_color.b * 255 / 2, 255),
+                                       IM_COL32(bar_color.r * 255 / 2, bar_color.g * 255 / 2, bar_color.b * 255 / 2, 255));
+    //draw_list->AddRectFilled(ImVec2(0, window_height - keyboard_height - keyboard_height * 0.03),
+    //                         ImVec2(window_width, window_height - keyboard_height), IM_COL32(bar_color.r * 255 / 2, bar_color.g * 255 / 2, bar_color.b * 255 / 2, 255));
   }
 
   // keyboard background
@@ -1881,13 +1891,20 @@ void Renderer::ImGuiFrame()
     {
       if(key_color[i] == -1)
       {
-        draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height), ImVec2(key_left[i] + key_widths[i], window_height), IM_COL32(145, 145, 145, 255), 2);
-        draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height), ImVec2(key_left[i] + key_widths[i], window_height - (keyboard_height * 0.045)), IM_COL32(255, 255, 240, 255), 2);
+        //Bottom of white keys
+        draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height), ImVec2(key_left[i] + key_widths[i], window_height), IM_COL32(120, 120, 120, 255));
+        //White Keys
+        draw_list->AddRectFilledMultiColor(ImVec2(key_left[i], window_height - keyboard_height), ImVec2(key_left[i] + key_widths[i], window_height - (keyboard_height * 0.045)),
+                                                                                                                                                   IM_COL32(255, 255, 240, 255),
+                                                                                                                                                   IM_COL32(255, 255, 240, 255),
+                                                                                                                                                   IM_COL32(195, 195, 180, 255),
+                                                                                                                                                   IM_COL32(195, 195, 180, 255));
       }
       else
       {
-        uint32_t col = dark_colors[key_color[i]];
-        draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height), ImVec2(key_left[i] + key_widths[i], window_height), col, 2);
+        uint32_t dark_col = darkerer_colors[key_color[i]];
+        uint32_t col = colors_packed[key_color[i]];
+        draw_list->AddRectFilledMultiColor(ImVec2(key_left[i], window_height - keyboard_height), ImVec2(key_left[i] + key_widths[i], window_height), dark_col, dark_col, col, col);
       }
     }
   }
@@ -1897,16 +1914,21 @@ void Renderer::ImGuiFrame()
     {
       if(key_color[i] == -1)
       {
-        draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height),
-                                 ImVec2(key_left[i] + key_widths[i], window_height - (keyboard_height * (44.0f / 125.0f))), IM_COL32(40, 40, 40, 255), 2);
-        draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height - (keyboard_height * 0.032)),
-                                 ImVec2(key_left[i] + key_widths[i], window_height - (keyboard_height * (46.0f / 125.0f)) - (keyboard_height * 0.025)), IM_COL32(5, 5, 5, 255), 2);
+        //Bottom of black keys
+        draw_list->AddRectFilled(ImVec2(key_left[i] - 0.8f, window_height - keyboard_height),
+                                 ImVec2(key_left[i] + (key_widths[i] + 1.4f), window_height - (keyboard_height * (45.0f / 125.0f))), IM_COL32(10, 10, 10, 255), 2);
+        //Black keys
+        draw_list->AddRectFilledMultiColor(ImVec2(key_left[i], window_height - keyboard_height - (keyboard_height * 0.032)),
+                                 ImVec2(key_left[i] + key_widths[i], window_height - (keyboard_height * (46.0f / 125.0f)) - (keyboard_height * 0.025)), IM_COL32(75, 75, 75, 255),
+                                                                                                                                                        IM_COL32(30, 30, 30, 255),
+                                                                                                                                                        IM_COL32(25, 25, 25, 255),
+                                                                                                                                                        IM_COL32(25, 25, 25, 255));
       }
       else
       {
         uint32_t col = darker_colors[key_color[i]];
         draw_list->AddRectFilled(ImVec2(key_left[i], window_height - keyboard_height - (keyboard_height * 0.005)),
-                                 ImVec2(key_left[i] + key_widths[i], window_height - (keyboard_height * (44.0f / 125.0f))), col, 2);
+                                 ImVec2(key_left[i] + key_widths[i], window_height - (keyboard_height * (45.0f / 125.0f))), col, 2);
       }
     }
   }
@@ -1948,8 +1970,9 @@ void Renderer::ImGuiFrame()
     }
   }
 
+  ImVec2 stats_size;
   ImGui::SetNextWindowPos(ImVec2(10.0f, 10.0f));
-  ImGui::SetNextWindowSize(ImVec2(192.0f, 0.0f));
+  ImGui::SetNextWindowSize(ImVec2(192.0f, 0.0f), ImGuiCond_Once);
   ImGui::Begin("stats", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMove |
                ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoNav |
                ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing);
@@ -1985,6 +2008,7 @@ void Renderer::ImGuiFrame()
   auto count = fmt::format(std::locale(""), "{:n}", *note_count);
   ImGui::Text((n_played + " / " + count).c_str());
   if(hide_notes) ImGui::Text("Overlap remover enabled");
+  ImGui::End();
 
   // settings
   if(show_settings)
@@ -2000,6 +2024,7 @@ void Renderer::ImGuiFrame()
       {
         ImGui::Checkbox("VSync", &Config::GetConfig().vsync);
         ImGui::Checkbox("Fullscreen*", &Config::GetConfig().fullscreen);
+        ImGui::Checkbox("Transparent Window*", &Config::GetConfig().transparent);
         ImGui::Checkbox("Hide Overlapping Notes (only faster on overlap-heavy or sustain-heavy MIDIs)", &Config::GetConfig().note_hide);
         ImGui::Checkbox("Toggle Discord Rich Presence*", &Config::GetConfig().discord_rpc);
         ImGui::SliderFloat("Start Delay (Seconds)*", &Config::GetConfig().start_delay, 0, 60);
@@ -2054,8 +2079,6 @@ void Renderer::ImGuiFrame()
     if(io.MouseClicked[0] || io.MouseClicked[1])
       show_settings = true;
   }
-
-  ImGui::End();
 }
 
 #pragma endregion
@@ -2065,7 +2088,7 @@ void Renderer::ImGuiFrame()
 void Renderer::updateUniformBuffer(uint32_t current_img, float time)
 {
   //Now lets rotate the model around the Z-axis based on the time. This will rotate 90 degrees per second
-  UniformBufferObject ubo = {};
+  UniformBufferObject ubo{};
   //ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   ubo.model = glm::identity<glm::mat4>();
 
@@ -2186,6 +2209,7 @@ QueueFamilyIndices Renderer::findQueueFamilies(VkPhysicalDevice device)
     if(queue_fam.queueFlags & VK_QUEUE_GRAPHICS_BIT)
     {
       indis.graphics_fam = i;
+      indis.has_graphics_fam = true;
     }
 
     VkBool32 present_support = false;
@@ -2194,6 +2218,7 @@ QueueFamilyIndices Renderer::findQueueFamilies(VkPhysicalDevice device)
     if(present_support)
     {
       indis.present_fam = i;
+      indis.has_present_fam = true;
     }
 
     if(indis.isComplete())
@@ -2296,7 +2321,7 @@ VkFormat Renderer::findDepthFormat()
 
 VkImageView Renderer::createImageView(VkImage img, VkFormat format, VkImageAspectFlags aspect_flags)
 {
-  VkImageViewCreateInfo view_info = {};
+  VkImageViewCreateInfo view_info{};
   view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
   view_info.image = img;
   view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -2318,7 +2343,7 @@ VkImageView Renderer::createImageView(VkImage img, VkFormat format, VkImageAspec
 
 VkCommandBuffer Renderer::beginSingleTimeCommands()
 {
-  VkCommandBufferAllocateInfo alloc_info = {};
+  VkCommandBufferAllocateInfo alloc_info{};
   alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
   alloc_info.commandPool = cmd_pool;
@@ -2327,7 +2352,7 @@ VkCommandBuffer Renderer::beginSingleTimeCommands()
   VkCommandBuffer cmd_buffer;
   vkAllocateCommandBuffers(device, &alloc_info, &cmd_buffer);
 
-  VkCommandBufferBeginInfo begin_info = {};
+  VkCommandBufferBeginInfo begin_info{};
   begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
@@ -2340,7 +2365,7 @@ void Renderer::endSingleTimeCommands(VkCommandBuffer cmd_buffer)
 {
   vkEndCommandBuffer(cmd_buffer);
 
-  VkSubmitInfo submit_info = {};
+  VkSubmitInfo submit_info{};
   submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   submit_info.commandBufferCount = 1;
   submit_info.pCommandBuffers = &cmd_buffer;
@@ -2355,7 +2380,7 @@ void Renderer::copyBufferToImage(VkBuffer buffer, VkImage img, uint32_t width, u
 {
   VkCommandBuffer cmd_buffer = beginSingleTimeCommands();
 
-  VkBufferImageCopy region = {};
+  VkBufferImageCopy region{};
   region.bufferOffset = 0;
   region.bufferRowLength = 0;
   region.bufferImageHeight = 0;
@@ -2473,11 +2498,11 @@ void Renderer::initImGui()
 
   ImGui_ImplGlfw_InitForVulkan(window, true);
 
-  ImGui_ImplVulkan_InitInfo init_info = {};
+  ImGui_ImplVulkan_InitInfo init_info{};
   init_info.Instance = inst;
   init_info.PhysicalDevice = pdevice;
   init_info.Device = device;
-  init_info.QueueFamily = queue_families.graphics_fam.value(); // would've failed much earlier if this had no value
+  init_info.QueueFamily = queue_families.graphics_fam; // would've failed much earlier if this had no value
   init_info.Queue = graphics_queue;
   init_info.PipelineCache = pipeline_cache;
   init_info.DescriptorPool = imgui_descriptor_pool;

@@ -18,6 +18,7 @@
 #pragma warning(pop)
 
 Renderer r;
+GlobalTime* gt;
 Midi* midi;
 MidiTrack* trk;
 
@@ -49,8 +50,17 @@ void Main::run(int argc, wchar_t** argv)
   KDMAPI::Init();
   SetConsoleOutputCP(65001); // utf-8
   fmt::print("Loading {}\n", Utils::wstringToUtf8(Utils::GetFileName(filename)));
-  std::cout << "RPC Enabled: " << Config::GetConfig().discord_rpc << std::endl;
-  if(Config::GetConfig().discord_rpc) Utils::InitDiscord();
+
+  try
+  {
+    std::cout << "RPC Enabled: " << Config::GetConfig().discord_rpc << std::endl;
+    if(Config::GetConfig().discord_rpc) Utils::InitDiscord();
+  } catch(const std::exception& e)
+  {
+    std::cout << "RPC Enabled: 0 (Discord Not Installed)" << std::endl;
+    Config::GetConfig().discord_rpc = false;
+  }
+  
   wchar_t* filename_temp = _wcsdup(filename.c_str());
   midi = new Midi(filename_temp);
   r.note_event_buffer = midi->note_event_buffer;
@@ -64,15 +74,23 @@ void Main::run(int argc, wchar_t** argv)
   midi->SpawnLoaderThread();
   initWindow(filename); //Setup everything for the window
   initVulkan(); //Setup everything for Vulkan
+  gt = new GlobalTime(Config::GetConfig().start_delay);
   mainLoop(filename); //The main loop for the application
   cleanup(); //Cleanup everything because we closed the application
   free(filename_temp);
 }
 
+bool paused = false;
+
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
   if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
     exit(1);
+  if(key == GLFW_KEY_SPACE && action == GLFW_PRESS)
+  {
+    paused = !paused;
+    paused ? gt->pause() : gt->resume();
+  }
 }
 
 void Main::initWindow(std::wstring midi)
@@ -80,13 +98,16 @@ void Main::initWindow(std::wstring midi)
   glfwInit(); //Init glfw
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); //Set the glfw api to GLFW_NO_API because we are using Vulkan
   glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); //Change the ability to resize the window
-  //glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE); //Window Transparancy
+  if(Config::GetConfig().transparent)
+    glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE); //Window Transparancy
   auto filename = Utils::wstringToUtf8(Utils::GetFileName(midi));
   
   if(Config::GetConfig().fullscreen)
   {
     const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
     r.window = glfwCreateWindow(mode->width, mode->height, std::string("Chikara | " + filename).c_str(), glfwGetPrimaryMonitor(), nullptr); //Now we create the window
+    r.window_width = mode->width;
+    r.window_height = mode->height;
   } else {
     r.window = glfwCreateWindow(default_width, default_height, std::string("Chikara | " + filename).c_str(), nullptr, nullptr); //Now we create the window
   }
@@ -145,7 +166,7 @@ void Main::mainLoop(std::wstring midi_name)
 
   long long start = (std::chrono::system_clock::now().time_since_epoch() + std::chrono::seconds((long long)Config::GetConfig().start_delay)) / std::chrono::milliseconds(1);
   long long end_time = (std::chrono::system_clock::now().time_since_epoch() + std::chrono::seconds(5) + std::chrono::seconds((long long)midi->song_len)) / std::chrono::milliseconds(1);
-  midi->SpawnPlaybackThread(start_time);
+  midi->SpawnPlaybackThread(gt, Config::GetConfig().start_delay);
   /*
   char buffer[256];
   sprintf(buffer, "Note Count: %s", fmt::format(std::locale(""), "{:n}", midi->note_count));
@@ -157,12 +178,13 @@ void Main::mainLoop(std::wstring midi_name)
   while(!glfwWindowShouldClose(r.window))
   {
     r.pre_time = Config::GetConfig().note_speed;
-    auto current_time = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
-    r.midi_renderer_time->store(time + r.pre_time);
-
+    //float time;
+    //auto current_time = std::chrono::high_resolution_clock::now();
+    //time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
+    r.midi_renderer_time->store(gt->getTime() + r.pre_time);
+    
     glfwPollEvents();
-    r.drawFrame(time);
+    r.drawFrame(gt->getTime());
   }
 
   vkDeviceWaitIdle(r.device);

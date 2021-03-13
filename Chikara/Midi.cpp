@@ -1,4 +1,5 @@
 #include <Windows.h>
+#include "Main.h"
 #include "Midi.h"
 #include "KDMAPI.h"
 #include <fmt/locale.h>
@@ -365,30 +366,27 @@ void Midi::LoaderThread()
   printf("\nLoader thread exiting...\n");
 }
 
-void Midi::SpawnPlaybackThread(std::chrono::steady_clock::time_point _start_time)
+void Midi::SpawnPlaybackThread(GlobalTime* _gt, long long _start_delay)
 {
-  start_time = _start_time;
+  gt = _gt;
+  start_delay = _start_delay;
   playback_thread = std::thread(&Midi::PlaybackThread, this);
 }
 
 void Midi::PlaybackThread()
 {
-  auto timer = std::chrono::steady_clock();
-  auto last_time = timer.now();
-
   // this not only plays pitch bend and other events, but normal note events too
+  double time = -start_delay;
   while(true)
   {
     bool stop_requested = false;
-    auto current_time = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
     MidiEvent event;
     while(misc_events.try_dequeue(event))
     {
+      time = gt->getTime();
       while(time < event.time)
       {
-        current_time = std::chrono::high_resolution_clock::now();
-        time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
+        time = gt->getTime();
       }
       auto msg = event.msg;
       if(msg == PLAYBACK_TERMINATE_EVENT)
