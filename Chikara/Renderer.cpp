@@ -1367,8 +1367,9 @@ void Renderer::submitSingleCommandBuffer(VkCommandBuffer cmds)
   vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, UINT64_MAX);
 }
 
-void Renderer::drawFrame(float time)
+void Renderer::drawFrame(GlobalTime* _gt)
 {
+  float time = _gt->getTime();
   auto start_time = std::chrono::high_resolution_clock::now();
 
   concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i)
@@ -1679,7 +1680,7 @@ void Renderer::drawFrame(float time)
   ImGui_ImplVulkan_NewFrame();
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
-  ImGuiFrame();
+  ImGuiFrame(_gt);
   ImGui::Render();
 
   {
@@ -1847,7 +1848,7 @@ void Renderer::PrepareKeyboard()
   keyboard_height *= 0.55;
 }
 
-void Renderer::ImGuiFrame()
+void Renderer::ImGuiFrame(GlobalTime* _gt)
 {
   // keyboard
   //printf("%d\n", white_key_count);
@@ -2004,17 +2005,37 @@ void Renderer::ImGuiFrame()
       ImGui::Text("%s", str.c_str());
     }
   }
+
+  if(playback_speed > 1 || playback_speed < 1)
+  {
+    std::string speedstr = fmt::format(std::locale(""), "{:0.3f}", (float)playback_speed).c_str();
+    ImGui::Text("Playback Speed:");
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(ImGui::GetWindowWidth() - ImGui::CalcTextSize(speedstr.c_str()).x - ImGui::GetScrollX() - ImGui::GetStyle().ItemSpacing.x);
+    ImGui::Text("%s", speedstr);
+  }
   auto n_played = fmt::format(std::locale(""), "{:n}", *notes_played);
   auto count = fmt::format(std::locale(""), "{:n}", *note_count);
   ImGui::Text((n_played + " / " + count).c_str());
   if(hide_notes) ImGui::Text("Overlap remover enabled");
   ImGui::End();
 
+  //Paused
+  if(paused)
+  { 
+    ImGui::SetNextWindowPos(ImVec2(window_width - 10.0f, 10.0f), 0, ImVec2(1, 0));
+    ImGui::Begin("paused", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMove |
+                 ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoNav |
+                 ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing);
+    ImGui::Text("Playback Paused");
+    ImGui::End();
+  }
+
   // settings
   if(show_settings)
   {
-    ImGui::SetNextWindowPos(ImVec2(window_width * 0.25, window_height * 0.25), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(window_width / 2, window_height / 2), ImGuiCond_Once);
+    ImGui::SetNextWindowPos(ImVec2(window_width * 0.25, window_height * 0.25), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSize(ImVec2(window_width / 2, window_height / 2), ImGuiCond_Appearing);
     ImGui::Begin("Settings", &show_settings, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     ImGui::Text("Items marked with a * require a restart.");
     ImGui::BeginChild("SettingsChild", ImVec2(0, -25), false);
@@ -2033,6 +2054,13 @@ void Renderer::ImGuiFrame()
         ImGui::ColorEdit3("Background Color*", &Config::GetConfig().clear_color.r, ImGuiColorEditFlags_RGB);
         ImGui::ColorEdit3("Bar Color", &Config::GetConfig().bar_color.r, ImGuiColorEditFlags_RGB); // haha undefined behavior go Segmentation fault
         if(Config::GetConfig().rainbow_bar) ImGui::SliderFloat("Rainbow Speed", &Config::GetConfig().rainbow_speed, 1, 1000);
+        ImGui::EndTabItem();
+      }
+      if(ImGui::BeginTabItem("Playback"))
+      {
+        ImGui::Text("Items here are not saved in the config");
+        if(ImGui::Checkbox("Pause Playback", &paused)) paused ? _gt->pause() : _gt->resume();
+        if(ImGui::SliderFloat("Playback Speed", &playback_speed, 0, 5)) _gt->changeSpeed(playback_speed);
         ImGui::EndTabItem();
       }
       if(ImGui::BeginTabItem("About"))

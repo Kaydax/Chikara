@@ -18,7 +18,7 @@
 #pragma warning(pop)
 
 Renderer r;
-GlobalTime* gt;
+GlobalTime* gtime;
 Midi* midi;
 MidiTrack* trk;
 
@@ -75,12 +75,11 @@ void Main::run(int argc, wchar_t** argv)
   initWindow(filename); //Setup everything for the window
   initVulkan(); //Setup everything for Vulkan
   gt = new GlobalTime(Config::GetConfig().start_delay);
+  gtime = gt;
   mainLoop(filename); //The main loop for the application
   cleanup(); //Cleanup everything because we closed the application
   free(filename_temp);
 }
-
-bool paused = false;
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
@@ -88,8 +87,8 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     exit(1);
   if(key == GLFW_KEY_SPACE && action == GLFW_PRESS)
   {
-    paused = !paused;
-    paused ? gt->pause() : gt->resume();
+    r.paused = !r.paused;
+    r.paused ? gtime->pause() : gtime->resume();
   }
 }
 
@@ -184,7 +183,7 @@ void Main::mainLoop(std::wstring midi_name)
     r.midi_renderer_time->store(gt->getTime() + r.pre_time);
     
     glfwPollEvents();
-    r.drawFrame(gt->getTime());
+    r.drawFrame(gt);
   }
 
   vkDeviceWaitIdle(r.device);

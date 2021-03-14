@@ -4,6 +4,7 @@
 class GlobalTime
 {
   public:
+    bool paused = false;
     
     GlobalTime(float delay);
     double getTime();
@@ -11,7 +12,6 @@ class GlobalTime
     void resume();
     void changeSpeed(float speed);
   private:
-    bool paused = false;
     std::chrono::steady_clock::time_point real_time;
     double midi_time = 0;
     float speed = 1;

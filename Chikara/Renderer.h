@@ -306,6 +306,8 @@ public:
   float pre_time;
   double max_elapsed_time = 0;
   bool first_frame = true;
+  bool paused = false;
+  float playback_speed = 1;
 
   uint32_t current_frame_index;
 
@@ -351,9 +353,9 @@ public:
   static void CheckVkResult(VkResult err);
   void initImGui();
   void destroyImGui();
-  void drawFrame(float time);
+  void drawFrame(GlobalTime* _gt);
   void PrepareKeyboard();
-  void ImGuiFrame();
+  void ImGuiFrame(GlobalTime* _gt);
 
   static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
   void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& buffer_mem);

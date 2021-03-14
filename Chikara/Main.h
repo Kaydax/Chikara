@@ -5,6 +5,8 @@
 class Main
 {
   public:
+    GlobalTime* gt;
+
     void run(int argc, wchar_t** argv);
     void recreateSwapChain();
   private:
