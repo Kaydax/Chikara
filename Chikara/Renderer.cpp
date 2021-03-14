@@ -2061,6 +2061,14 @@ void Renderer::ImGuiFrame(GlobalTime* _gt)
         ImGui::Text("Items here are not saved in the config");
         if(ImGui::Checkbox("Pause Playback", &paused)) paused ? _gt->pause() : _gt->resume();
         if(ImGui::SliderFloat("Playback Speed", &playback_speed, 0, 5)) _gt->changeSpeed(playback_speed);
+        ImGui::Separator();
+        ImGui::Text(
+        R"(Playback Controls:
+Pause/Play = Spacebar
+Skip Forward (1 Second) = Right Arrow
+Skip Forward (5 Seconds) = Shift + Right Arrow
+(Skipping too fast can kill the loader thread. Pausing may fix this if it does happen)
+        )");
         ImGui::EndTabItem();
       }
       if(ImGui::BeginTabItem("About"))

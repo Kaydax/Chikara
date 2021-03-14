@@ -90,6 +90,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     r.paused = !r.paused;
     r.paused ? gtime->pause() : gtime->resume();
   }
+  if(key == GLFW_KEY_RIGHT && action == GLFW_PRESS && mods != GLFW_MOD_SHIFT)
+    gtime->skipForward(1);
+  if(key == GLFW_KEY_RIGHT && action == GLFW_PRESS && mods == GLFW_MOD_SHIFT)
+    gtime->skipForward(5);
 }
 
 void Main::initWindow(std::wstring midi)
