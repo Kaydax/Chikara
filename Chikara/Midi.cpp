@@ -381,10 +381,10 @@ void Midi::PlaybackThread()
   {
     bool stop_requested = false;
     MidiEvent event;
+    time = gt->getTime();
     while(misc_events.try_dequeue(event))
     {
-      time = gt->getTime();
-      while(time < event.time)
+      while(time < event.time || gt->isPaused())
       {
         time = gt->getTime();
       }
