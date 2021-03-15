@@ -17,7 +17,7 @@ class Utils
 public:
   static std::wstring GetFileName(std::filesystem::path file_path);
   static void InitDiscord();
-  static void UpdatePresence(const char* state, const char* details, std::string file_name, uint64_t start_time, uint64_t end_time);
+  static void UpdatePresence(const char* state, const char* details, std::string file_name);
   static void DestroyDiscord();
   rgb HSVtoRGB(float H, float S, float V);
   static std::string wstringToUtf8(std::wstring str);

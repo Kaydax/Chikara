@@ -37,7 +37,7 @@ void Utils::InitDiscord()
   Discord_Initialize("732538738122424321", &handlers, 1, NULL);
 }
 
-void Utils::UpdatePresence(const char* state, const char* details, std::string file_name, uint64_t start_time, uint64_t end_time)
+void Utils::UpdatePresence(const char* state, const char* details, std::string file_name)
 {
   const char* playing_text = std::string(details + file_name).c_str();
 
@@ -45,8 +45,6 @@ void Utils::UpdatePresence(const char* state, const char* details, std::string f
   memset(&discordPresence, 0, sizeof(discordPresence));
   discordPresence.state = state;
   discordPresence.details = playing_text;
-  discordPresence.startTimestamp = start_time;
-  discordPresence.endTimestamp = end_time;
   Discord_UpdatePresence(&discordPresence);
 }
 

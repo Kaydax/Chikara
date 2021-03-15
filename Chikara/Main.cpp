@@ -74,12 +74,16 @@ void Main::run(int argc, wchar_t** argv)
   midi->SpawnLoaderThread();
   initWindow(filename); //Setup everything for the window
   initVulkan(); //Setup everything for Vulkan
-  gt = new GlobalTime(Config::GetConfig().start_delay);
+  gt = new GlobalTime(Config::GetConfig().start_delay, midi->note_count, filename);
   gtime = gt;
   mainLoop(filename); //The main loop for the application
   cleanup(); //Cleanup everything because we closed the application
   free(filename_temp);
 }
+
+std::wstring midi_file_name;
+long long start_time;
+long long end_time;
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
@@ -98,6 +102,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 void Main::initWindow(std::wstring midi)
 {
+  midi_file_name = midi;
   glfwInit(); //Init glfw
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); //Set the glfw api to GLFW_NO_API because we are using Vulkan
   glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); //Change the ability to resize the window
@@ -165,10 +170,6 @@ uint64_t fps = 0;
 
 void Main::mainLoop(std::wstring midi_name)
 {
-  static auto start_time = std::chrono::high_resolution_clock::now() + std::chrono::seconds((long long)Config::GetConfig().start_delay);
-
-  long long start = (std::chrono::system_clock::now().time_since_epoch() + std::chrono::seconds((long long)Config::GetConfig().start_delay)) / std::chrono::milliseconds(1);
-  long long end_time = (std::chrono::system_clock::now().time_since_epoch() + std::chrono::seconds(5) + std::chrono::seconds((long long)midi->song_len)) / std::chrono::milliseconds(1);
   midi->SpawnPlaybackThread(gt, Config::GetConfig().start_delay);
   /*
   char buffer[256];
@@ -176,7 +177,7 @@ void Main::mainLoop(std::wstring midi_name)
   */
   if (Config::GetConfig().discord_rpc) {
     auto rpc_text = fmt::format(std::locale(""), "Note Count: {:n}", midi->note_count);
-    Utils::UpdatePresence(rpc_text.c_str(), "Playing: ", Utils::wstringToUtf8(Utils::GetFileName(midi_name)), (uint64_t)start, (uint64_t)end_time);
+    Utils::UpdatePresence(rpc_text.c_str(), "Playing: ", Utils::wstringToUtf8(Utils::GetFileName(midi_name)));
   }
   while(!glfwWindowShouldClose(r.window))
   {
