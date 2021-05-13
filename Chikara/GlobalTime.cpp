@@ -41,8 +41,8 @@ void GlobalTime::resume()
 
 void GlobalTime::changeSpeed(float speed)
 {
-  syncTime();
   this->speed = speed;
+  syncTime();
 }
 
 void GlobalTime::skipForward(float seconds)

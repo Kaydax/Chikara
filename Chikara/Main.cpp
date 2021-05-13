@@ -60,6 +60,19 @@ void Main::run(int argc, wchar_t** argv)
     std::cout << "RPC Enabled: 0 (Discord Not Installed)" << std::endl;
     Config::GetConfig().discord_rpc = false;
   }
+
+  try
+  {
+    if(Config::GetConfig().loader_buffer < 0)
+    {
+      Config::GetConfig().loader_buffer = 0;
+      Config::GetConfig().Save();
+    }
+  }
+  catch (const std::exception& e)
+  {
+    //Config didn't exist, expecting it to just be 10;
+  }
   
   wchar_t* filename_temp = _wcsdup(filename.c_str());
   midi = new Midi(filename_temp);

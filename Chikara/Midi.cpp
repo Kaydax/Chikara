@@ -2,6 +2,7 @@
 #include "Main.h"
 #include "Midi.h"
 #include "KDMAPI.h"
+#include "Config.h"
 #include <fmt/locale.h>
 #include <fmt/format.h>
 
@@ -309,7 +310,7 @@ void Midi::LoaderThread()
   while(true)
   {
     memset(tracks_ended, 0, track_count);
-    while(seconds < renderer_time.load() + 10.0f)
+    while(seconds < renderer_time.load() + (Config::GetConfig().loader_buffer >= 0 ? Config::GetConfig().loader_buffer : 0))
     {
       for(int i = 0; i < track_count; i++)
       {

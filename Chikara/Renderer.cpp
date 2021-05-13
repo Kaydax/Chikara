@@ -2050,10 +2050,13 @@ void Renderer::ImGuiFrame(GlobalTime* _gt)
         ImGui::Checkbox("Toggle Discord Rich Presence*", &Config::GetConfig().discord_rpc);
         ImGui::SliderFloat("Start Delay (Seconds)*", &Config::GetConfig().start_delay, 0, 60);
         ImGui::SliderFloat("Note Speed", &Config::GetConfig().note_speed, 10, 0.01);
+        if(ImGui::SliderFloat("Note Buffer (Seconds)", &Config::GetConfig().loader_buffer, 1, 100)) if(Config::GetConfig().loader_buffer < 0) Config::GetConfig().loader_buffer = 0;
         ImGui::Checkbox("Rainbow Bar", &Config::GetConfig().rainbow_bar);
         ImGui::ColorEdit3("Background Color*", &Config::GetConfig().clear_color.r, ImGuiColorEditFlags_RGB);
         ImGui::ColorEdit3("Bar Color", &Config::GetConfig().bar_color.r, ImGuiColorEditFlags_RGB); // haha undefined behavior go Segmentation fault
         if(Config::GetConfig().rainbow_bar) ImGui::SliderFloat("Rainbow Speed", &Config::GetConfig().rainbow_speed, 1, 1000);
+        ImGui::Separator();
+        ImGui::Text("Note: Increasing the Note Buffer increases ram usage");
         ImGui::EndTabItem();
       }
       if(ImGui::BeginTabItem("Playback"))

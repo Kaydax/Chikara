@@ -32,6 +32,7 @@ void Config::Load(std::string& path) {
   note_speed = GetFloat(reader, "Chikara", "NoteSpeed", note_speed);
   rainbow_speed = GetFloat(reader, "Chikara", "RainbowSpeed", rainbow_speed);
   start_delay = GetFloat(reader, "Chikara", "StartDelay", start_delay);
+  loader_buffer = GetFloat(reader, "Chikara", "LoaderBuffer", loader_buffer);
 
   config_path = path;
 }
@@ -57,6 +58,7 @@ bool Config::Save() {
   WriteFloat(ini, "NoteSpeed", note_speed);
   WriteFloat(ini, "RainbowSpeed", rainbow_speed);
   WriteFloat(ini, "StartDelay", start_delay);
+  WriteFloat(ini, "LoaderBuffer", loader_buffer);
 
   fclose(ini);
 
