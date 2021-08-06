@@ -2,6 +2,7 @@
 #include "Main.h"
 #include "Midi.h"
 #include "KDMAPI.h"
+#include "OmniMIDI.h"
 #include "Config.h"
 #include <fmt/locale.h>
 #include <fmt/format.h>
@@ -139,7 +140,7 @@ void Midi::loadMidi()
       while(!track->ended)
       {
         track->parseDelta();
-        track->parseEvent(nullptr, nullptr);
+        track->parseEvent(nullptr, nullptr, nullptr);
       }
 
       mtx.lock();
@@ -172,6 +173,14 @@ void Midi::loadMidi()
     std::cout << "\nTotal tempo events: " << fmt::format(std::locale(""), "{:n}", tc);
     std::cout << "\nTotal notes: " << fmt::format(std::locale(""), "{:n}", nc);
     std::cout << "\nTotal tracks: " << fmt::format(std::locale(""), "{:n}", tn) << std::endl;
+
+    Utils u;
+
+    for(int i = 0; i < tn * 16; i++)
+    {
+      auto color = u.HSVtoRGB(i * 16 % 360, 1, 1);
+      colors.push_back({ color.r / 255.0f, color.g / 255.0f, color.b / 255.0f });
+    }
 
     note_count = nc; //Save the note count to a uint64_t so we can use it later
 
@@ -336,7 +345,7 @@ void Midi::LoaderThread()
           continue;
         while(time >= track->tick_time)
         {
-          track->parseEvent(note_event_buffer, &misc_events);
+          track->parseEvent(note_event_buffer, &misc_events, &text_events);
           if(track->time > seconds) seconds = track->time;
           track->parseDeltaTime();
           if(track->ended)
@@ -397,8 +406,21 @@ void Midi::PlaybackThread()
       }
       if((msg & 0xf0) == 0x90 && (msg & 0xff0000) != 0)
         notes_played++;
-      KDMAPI::SendDirectData(msg);
+
+      SendDirectData(msg);
+
+      auto text = text_events.peek();
+      if(text)
+      {
+        if(time > text->time)
+        {
+          //std::cout << text->text << std::endl;
+          marker = text->text;
+          text_events.pop();
+        }
+      }
     }
+    
     if(stop_requested)
       break;
   }
@@ -582,7 +604,7 @@ double MidiTrack::multiplierFromTempo(uint32_t tempo, uint16_t ppq)
   return tempo / 1000000.0 / ppq;
 }
 
-void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_note_events, moodycamel::ReaderWriterQueue<MidiEvent>* global_misc)
+void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_note_events, moodycamel::ReaderWriterQueue<MidiEvent>* global_misc, moodycamel::ReaderWriterQueue<TextEvent>* text_misc)
 {
   bool stage_2 = global_note_events != nullptr;
   if(ended)
@@ -619,7 +641,8 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_not
 
           NoteEvent note_event;
           note_event.time = static_cast<float>(time);
-          note_event.track = track_num * 16 + channel;
+          //note_event.track = track_num * 16 + channel;
+          note_event.track = (track_num << 4) + channel;
           note_event.type = NoteEventType::NoteOff;
           global_note_events[key]->enqueue(note_event);
           break;
@@ -645,7 +668,8 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_not
 
             NoteEvent note_event;
             note_event.time = static_cast<float>(time);
-            note_event.track = track_num * 16 + channel;
+            //note_event.track = track_num * 16 + channel;
+            note_event.track = (track_num << 4) + channel;
             note_event.type = NoteEventType::NoteOn;
             global_note_events[key]->enqueue(note_event);
           }
@@ -658,7 +682,8 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_not
 
             NoteEvent note_event;
             note_event.time = static_cast<float>(time);
-            note_event.track = track_num * 16 + channel;
+            //note_event.track = track_num * 16 + channel;
+            note_event.track = (track_num << 4) + channel;
             note_event.type = NoteEventType::NoteOff;
             global_note_events[key]->enqueue(note_event);
           }
@@ -727,30 +752,40 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_not
               case 0x05: // Lyric
               case 0x06: // Marker
               case 0x07: // Cue point
-              case 0x0A:
+              case 0x0A: // 
               {
-                uint8_t* data = new uint8_t[val + 1];
-                for(int i = 0; i < val; i++) data[i] = reader->readByte();
-                if(command2 == 0x06)
+                if(stage_2)
                 {
-                  //TODO: Actually do something with this please
-                  data[val] = '\0';
-                  //std::cout << data << std::endl;
-                }
-                if(command2 == 0x0A && (val == 8 || val == 12) && data[0] == 0x00 && data[1] == 0x0F && (data[2] < 16 || data[2] == 0x7F) && data[3] == 0)
-                {
-                  if(val == 8)
+                  uint8_t* data = new uint8_t[val + 1];
+                  for(int i = 0; i < val; i++) data[i] = reader->readByte();
+                  if(command2 == 0x06)
                   {
-                    //double delta, byte channel, byte r, byte g, byte b, byte a
+                    //TODO: Actually do something with this please
+                    data[val] = '\0';
+                    TextEvent text_event;
+                    text_event.time = static_cast<float>(time);
+                    text_event.text = std::string((char*)data);
+                    text_misc->enqueue(text_event);
+                    //std::cout << data << std::endl;
+                  }
+                  if(command2 == 0x0A && (val == 8 || val == 12) && data[0] == 0x00 && data[1] == 0x0F && (data[2] < 16 || data[2] == 0x7F) && data[3] == 0)
+                  {
+                    if(val == 8)
+                    {
+                      //double delta, byte channel, byte r, byte g, byte b, byte a
+                      delete[] data;
+                      break;
+                    }
+                    //double delta, byte r, byte g, byte b, byte a, byte r2, byte g2, byte b2, byte a2
                     delete[] data;
                     break;
                   }
-                  //double delta, byte r, byte g, byte b, byte a, byte r2, byte g2, byte b2, byte a2
                   delete[] data;
                   break;
+                } else {
+                  reader->skipBytes(val);
+                  break;
                 }
-                delete[] data;
-                break;
               }
               case 0x7F: // Sequencer-specific information
                 reader->skipBytes(val);

@@ -139,5 +139,8 @@
     <ClInclude Include="..\externals\imgui\imgui_internal.h">
       <Filter>imgui</Filter>
     </ClInclude>
+    <ClInclude Include="Shaders\notes_g.h">
+      <Filter>Header Files\Shaders</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -21,6 +21,7 @@ public:
   bool note_hide = false;
   bool rainbow_bar = false;
   bool discord_rpc = false;
+  bool markers = true;
   glm::vec3 bar_color = glm::vec3(0.0f / 255, 196.0f / 255, 177.0f / 255);
   glm::vec3 clear_color = glm::vec3(0.0f / 255, 0.0f / 255, 0.0f / 255);
   float note_speed = 0.15;

@@ -1,5 +1,6 @@
 #include "Main.h"
 #include "KDMAPI.h"
+#include "OmniMIDI.h"
 #include "Config.h"
 #include "Utils.h"
 #include "Platform.h"
@@ -22,7 +23,8 @@ GlobalTime* gtime;
 Midi* midi;
 MidiTrack* trk;
 
-Vertex instanced_quad[] {
+Vertex instanced_quad[] 
+{
   { {0,1}, {0,1} },
   { {1,1}, {1,1} },
   { {1,0}, {1,0} },
@@ -37,29 +39,37 @@ uint32_t instanced_quad_indis[] = {
 void Main::run(int argc, wchar_t** argv)
 {
   std::wstring filename;
-  if (argc < 2) {
+  if(argc < 2) {
     filename = Platform::OpenMIDIFileDialog();
-    if (filename.empty())
+    if(filename.empty())
       return;
-  } else {
+  }
+  else {
     filename = argv[1];
   }
 
   auto config_path = Config::GetConfigPath();
   Config::GetConfig().Load(config_path);
-  KDMAPI::Init();
+  InitializeKDMAPIStream();
   SetConsoleOutputCP(65001); // utf-8
   fmt::print("Loading {}\n", Utils::wstringToUtf8(Utils::GetFileName(filename)));
+
+#ifdef RELEASE
 
   try
   {
     std::cout << "RPC Enabled: " << Config::GetConfig().discord_rpc << std::endl;
     if(Config::GetConfig().discord_rpc) Utils::InitDiscord();
-  } catch(const std::exception& e)
+  }
+  catch(const std::exception& e)
   {
     std::cout << "RPC Enabled: 0 (Discord Not Installed)" << std::endl;
     Config::GetConfig().discord_rpc = false;
   }
+
+#else
+  std::cout << "RPC Enabled: 0 (Chikara is compiled as debug)" << std::endl;
+#endif
 
   try
   {
@@ -69,11 +79,11 @@ void Main::run(int argc, wchar_t** argv)
       Config::GetConfig().Save();
     }
   }
-  catch (const std::exception& e)
+  catch(const std::exception& e)
   {
     //Config didn't exist, expecting it to just be 10;
   }
-  
+
   wchar_t* filename_temp = _wcsdup(filename.c_str());
   midi = new Midi(filename_temp);
   r.note_event_buffer = midi->note_event_buffer;
@@ -82,6 +92,11 @@ void Main::run(int argc, wchar_t** argv)
   r.note_count = &midi->note_count;
   r.notes_played = &midi->notes_played;
   r.song_len = midi->song_len;
+  r.marker = &midi->marker;
+  r.colors = midi->colors;
+
+  r.createColors();
+  midi->colors.clear(); //free up the colors array in color since we no longer need it
   // playback thread spawned in mainLoop to ensure it's synced with render
   //printf(file_name);
   midi->SpawnLoaderThread();
@@ -122,15 +137,21 @@ void Main::initWindow(std::wstring midi)
   if(Config::GetConfig().transparent)
     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE); //Window Transparancy
   auto filename = Utils::wstringToUtf8(Utils::GetFileName(midi));
-  
+  int count;
+  int monitorX, monitorY;
+  GLFWmonitor** monitors = glfwGetMonitors(&count);
+  glfwGetMonitorPos(monitors[0], &monitorX, &monitorY);
+  const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+
   if(Config::GetConfig().fullscreen)
   {
-    const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
     r.window = glfwCreateWindow(mode->width, mode->height, std::string("Chikara | " + filename).c_str(), glfwGetPrimaryMonitor(), nullptr); //Now we create the window
     r.window_width = mode->width;
     r.window_height = mode->height;
-  } else {
+  }
+  else {
     r.window = glfwCreateWindow(default_width, default_height, std::string("Chikara | " + filename).c_str(), nullptr, nullptr); //Now we create the window
+    glfwSetWindowPos(r.window, monitorX + (mode->width - default_width) / 2, monitorY + (mode->height - default_height) / 2);
   }
   glfwSetWindowUserPointer(r.window, &r);
   glfwSetFramebufferSizeCallback(r.window, r.framebufferResizeCallback);
@@ -148,7 +169,7 @@ void Main::initVulkan()
   r.createImageViews();
   r.createRenderPass(&r.note_render_pass, true, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
   r.createRenderPass(&r.additional_note_render_pass, true, VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-    VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+                     VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
   r.createDescriptorSetLayout();
   r.createGraphicsPipeline(notes_v, notes_v_length, notes_f, notes_f_length, notes_g, notes_g_length, r.note_render_pass, &r.note_pipeline_layout, &r.note_pipeline);
   r.createRenderPass(&r.imgui_render_pass, false, VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
@@ -184,14 +205,19 @@ uint64_t fps = 0;
 void Main::mainLoop(std::wstring midi_name)
 {
   midi->SpawnPlaybackThread(gt, Config::GetConfig().start_delay);
+
   /*
   char buffer[256];
   sprintf(buffer, "Note Count: %s", fmt::format(std::locale(""), "{:n}", midi->note_count));
   */
-  if (Config::GetConfig().discord_rpc) {
+
+#ifdef RELEASE
+  if(Config::GetConfig().discord_rpc && midi) {
     auto rpc_text = fmt::format(std::locale(""), "Note Count: {:n}", midi->note_count);
     Utils::UpdatePresence(rpc_text.c_str(), "Playing: ", Utils::wstringToUtf8(Utils::GetFileName(midi_name)));
   }
+#endif
+
   while(!glfwWindowShouldClose(r.window))
   {
     r.pre_time = Config::GetConfig().note_speed;
@@ -199,12 +225,13 @@ void Main::mainLoop(std::wstring midi_name)
     //auto current_time = std::chrono::high_resolution_clock::now();
     //time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
     r.midi_renderer_time->store(gt->getTime() + r.pre_time);
-    
+
     glfwPollEvents();
     r.drawFrame(gt);
   }
 
   vkDeviceWaitIdle(r.device);
+  TerminateKDMAPIStream();
 }
 
 #pragma region Recreating the swap chain
@@ -217,7 +244,7 @@ void Main::cleanupSwapChain()
 
   for(size_t i = 0; i < r.swap_chain_framebuffers.size(); i++)
     vkDestroyFramebuffer(r.device, r.swap_chain_framebuffers[i], nullptr);
-  for (size_t i = 0; i < r.imgui_swap_chain_framebuffers.size(); i++)
+  for(size_t i = 0; i < r.imgui_swap_chain_framebuffers.size(); i++)
     vkDestroyFramebuffer(r.device, r.imgui_swap_chain_framebuffers[i], nullptr);
 
   vkFreeCommandBuffers(r.device, r.cmd_pool, static_cast<uint32_t>(r.cmd_buffers.size()), r.cmd_buffers.data());
@@ -268,7 +295,7 @@ void Main::recreateSwapChain()
   r.createImageViews();
   r.createRenderPass(&r.note_render_pass, true, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
   r.createRenderPass(&r.additional_note_render_pass, true, VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-    VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+                     VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
   r.createGraphicsPipeline(notes_v, notes_v_length, notes_f, notes_f_length, notes_g, notes_g_length, r.note_render_pass, &r.note_pipeline_layout, &r.note_pipeline);
   r.createRenderPass(&r.imgui_render_pass, false, VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
   r.createDepthResources();
@@ -326,7 +353,9 @@ void Main::cleanup()
   glfwDestroyWindow(r.window);
 
   glfwTerminate(); //Now we terminate
+#ifdef RELEASE
   Utils::DestroyDiscord();
+#endif
 }
 
 #pragma endregion
@@ -338,7 +367,8 @@ int wmain(int argc, wchar_t** argv)
   try
   {
     app.run(argc, argv); //Startup the application
-  } catch(const std::exception & e)
+  }
+  catch(const std::exception& e)
   {
     std::cerr << e.what() << std::endl;
     return EXIT_FAILURE; //Something broke...

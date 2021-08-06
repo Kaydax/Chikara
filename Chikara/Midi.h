@@ -46,6 +46,12 @@ struct MidiEvent
   uint32_t msg;
 };
 
+struct TextEvent
+{
+  float time;
+  std::string text;
+};
+
 enum class NoteEventType : char {
   NoteOff,
   NoteOn,
@@ -107,7 +113,7 @@ class MidiTrack
     ~MidiTrack();
     void parseDelta();
     void parseDeltaTime();
-    void parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_note_events, moodycamel::ReaderWriterQueue<MidiEvent>* global_misc);
+    void parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_note_events, moodycamel::ReaderWriterQueue<MidiEvent>* global_misc, moodycamel::ReaderWriterQueue<TextEvent>* text_misc);
 
     bool ended = false;
     bool delta_parsed = false;
@@ -139,13 +145,16 @@ class Midi
 
     moodycamel::ReaderWriterQueue<NoteEvent>** note_event_buffer;
     moodycamel::ReaderWriterQueue<MidiEvent> misc_events;
+    moodycamel::ReaderWriterQueue<TextEvent> text_events;
     Tempo* tempo_array;
-    uint32_t tempo_count;
+    uint32_t tempo_count = 0;
     std::atomic<float> renderer_time;
-    uint32_t track_count;
-    uint64_t note_count;
+    uint32_t track_count = 0;
+    uint64_t note_count = 0;
     uint64_t notes_played = 0;
     double song_len = 0.0;
+    std::string marker = "";
+    std::vector<glm::vec3> colors;
   private:
     void loadMidi();
     void assertText(const char* text);

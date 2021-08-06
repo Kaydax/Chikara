@@ -11,6 +11,7 @@ GlobalTime::GlobalTime(float delay, uint64_t note_count, std::wstring midi_name)
   midi_time = -delay;
   this->note_count = note_count;
   this->midi_name = midi_name;
+  
 }
 
 double GlobalTime::getTime()
@@ -24,7 +25,10 @@ void GlobalTime::pause()
   if(paused) return;
   syncTime();
   paused = true;
+  Utils::KillAllVoices();
+#ifdef RELEASE
   if(Config::GetConfig().discord_rpc) updateRPC();
+#endif
 }
 
 bool GlobalTime::isPaused()
@@ -36,7 +40,9 @@ void GlobalTime::resume()
 {
   syncTime();
   paused = false;
+#ifdef RELEASE
   if(Config::GetConfig().discord_rpc) updateRPC();
+#endif
 }
 
 void GlobalTime::changeSpeed(float speed)
@@ -49,6 +55,7 @@ void GlobalTime::skipForward(float seconds)
 {
   midi_time += seconds;
   syncTime();
+  Utils::KillAllVoices();
 }
 
 void GlobalTime::syncTime()
@@ -56,6 +63,8 @@ void GlobalTime::syncTime()
   midi_time = getTime();
   real_time = std::chrono::high_resolution_clock::now();
 }
+
+#ifdef RELEASE
 
 void GlobalTime::updateRPC()
 {
@@ -67,3 +76,5 @@ void GlobalTime::updateRPC()
     Utils::UpdatePresence(rpc_text.c_str(), "Playing: ", Utils::wstringToUtf8(Utils::GetFileName(midi_name)));
   }
 }
+
+#endif

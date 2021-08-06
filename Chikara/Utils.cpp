@@ -1,4 +1,6 @@
 #include "Utils.h"
+#include "KDMAPI.h"
+#include "OmniMIDI.h"
 #include <fmt/locale.h>
 #include <fmt/format.h>
 
@@ -6,6 +8,8 @@ std::wstring Utils::GetFileName(std::filesystem::path file_path)
 {
   return std::filesystem::path(file_path).filename().wstring();
 }
+
+#ifdef RELEASE
 
 static void handleDiscordReady(const DiscordUser* connectedUser)
 {
@@ -51,6 +55,16 @@ void Utils::UpdatePresence(const char* state, const char* details, std::string f
 void Utils::DestroyDiscord()
 {
   Discord_Shutdown();
+}
+
+#endif
+
+void Utils::KillAllVoices()
+{
+  for(int i = 0; i < 16; i++)
+  {
+    SendCustomEvent(MIDI_EVENT_NOTESOFF, i, NULL);
+  }
 }
 
 rgb Utils::HSVtoRGB(float H, float S, float V)

@@ -12,6 +12,7 @@
 #include "Main.h"
 #include "Midi.h"
 #include "KDMAPI.h"
+#include "OmniMIDI.h"
 #include "Licenses.h"
 #include "Config.h"
 #include "Utils.h"
@@ -19,41 +20,41 @@
 Main m;
 Utils u;
 
-glm::vec3 colors[16] = {
-  {51 / 255.0f, 102 / 255.0f, 255 / 255.0f},
-  {255 / 255.0f, 126 / 255.0f, 51 / 255.0f},
-  {51 / 255.0f, 255 / 255.0f, 102 / 255.0f},
-  {255 / 255.0f, 51 / 255.0f, 129 / 255.0f},
-  {51 / 255.0f, 255 / 255.0f, 255 / 255.0f},
-  {228 / 255.0f, 51 / 255.0f, 255 / 255.0f},
-  {153 / 255.0f, 255 / 255.0f, 51 / 255.0f},
-  {75 / 255.0f, 51 / 255.0f, 255 / 255.0f},
-  {255 / 255.0f, 204 / 255.0f, 51 / 255.0f},
-  {51 / 255.0f, 180 / 255.0f, 255 / 255.0f},
-  {255 / 255.0f, 51 / 255.0f, 51 / 255.0f},
-  {51 / 255.0f, 255 / 255.0f, 177 / 255.0f},
-  {255 / 255.0f, 51 / 255.0f, 204 / 255.0f},
-  {78 / 255.0f, 255 / 255.0f, 51 / 255.0f},
-  {153 / 255.0f, 51 / 255.0f, 255 / 255.0f},
-  {231 / 255.0f, 255 / 255.0f, 51 / 255.0f}
-};
-
-uint32_t colors_packed[16];
-uint32_t dark_colors[16];
-uint32_t darker_colors[16];
-uint32_t darkerer_colors[16];
-
 // memcmped against to check if the screen is completely covered
 bool full_note_depth_buffer[NOTE_DEPTH_BUFFER_SIZE];
 
 Renderer::Renderer()
 {
-  for(int i = 0; i < 16; i++)
+  /*colors = {
+    {51 / 255.0f, 102 / 255.0f, 255 / 255.0f},
+    {255 / 255.0f, 126 / 255.0f, 51 / 255.0f},
+    {51 / 255.0f, 255 / 255.0f, 102 / 255.0f},
+    {255 / 255.0f, 51 / 255.0f, 129 / 255.0f},
+    {51 / 255.0f, 255 / 255.0f, 255 / 255.0f},
+    {228 / 255.0f, 51 / 255.0f, 255 / 255.0f},
+    {153 / 255.0f, 255 / 255.0f, 51 / 255.0f},
+    {75 / 255.0f, 51 / 255.0f, 255 / 255.0f},
+    {255 / 255.0f, 204 / 255.0f, 51 / 255.0f},
+    {51 / 255.0f, 180 / 255.0f, 255 / 255.0f},
+    {255 / 255.0f, 51 / 255.0f, 51 / 255.0f},
+    {51 / 255.0f, 255 / 255.0f, 177 / 255.0f},
+    {255 / 255.0f, 51 / 255.0f, 204 / 255.0f},
+    {78 / 255.0f, 255 / 255.0f, 51 / 255.0f},
+    {153 / 255.0f, 51 / 255.0f, 255 / 255.0f},
+    {231 / 255.0f, 255 / 255.0f, 51 / 255.0f}
+  };*/
+}
+
+void Renderer::createColors()
+{
+  color_size = colors.size();
+
+  for(long i = 0; i < color_size; i++)
   {
-    colors_packed[i] = encode_color(colors[i]);
-    dark_colors[i] = encode_color(colors[i] * glm::vec3(0.8));
-    darker_colors[i] = encode_color(colors[i] * glm::vec3(0.7));
-    darkerer_colors[i] = encode_color(colors[i] * glm::vec3(0.5));
+    colors_packed.push_back(encode_color(colors[i]));
+    dark_colors.push_back(encode_color(colors[i] * glm::vec3(0.8f)));
+    darker_colors.push_back(encode_color(colors[i] * glm::vec3(0.7f)));
+    darkerer_colors.push_back(encode_color(colors[i] * glm::vec3(0.5f)));
   }
   memset(key_color, 0xFFFFFFFF, sizeof(key_color));
   memset(full_note_depth_buffer, 0x01010101, sizeof(full_note_depth_buffer));
@@ -758,6 +759,7 @@ void Renderer::createGraphicsPipeline(const char* vert_spv, size_t vert_spv_leng
   }
 
   //Now destroy the shader modules
+  vkDestroyShaderModule(device, geom_shader_module, nullptr); //Why the fuck were we not doing this already?
   vkDestroyShaderModule(device, frag_shader_module, nullptr);
   vkDestroyShaderModule(device, vert_shader_module, nullptr);
 }
@@ -1567,6 +1569,7 @@ void Renderer::drawFrame(GlobalTime* _gt)
 
     memset(key_color, 0xFFFFFFFF, sizeof(key_color));
 
+    polyphony = 0;
     concurrency::parallel_for(size_t(0), size_t(256), [&](size_t i)
     {
       auto& list = notes_shown[i];
@@ -1586,7 +1589,7 @@ void Renderer::drawFrame(GlobalTime* _gt)
             if(time >= n.start)
             {
               if(key_color[n.key] == -1)
-                key_color[n.key] = n.track & 0xF;
+                key_color[n.key] = ((n.track >> 4) + (n.track & 0xF)) % color_size;
             }
             x = x->next;
           }
@@ -1605,10 +1608,11 @@ void Renderer::drawFrame(GlobalTime* _gt)
         {
           if(time >= n.start)
           {
+            polyphony++;
             if(key_color[n.key] == -1)
-              key_color[n.key] = n.track & 0xF;
+              key_color[n.key] = ((n.track >> 4) + (n.track & 0xF)) % color_size;
           }
-          intermediate_note_data[key_indices[i]++] = { static_cast<float>(n.start), static_cast<float>(n.end), n.key, colors_packed[n.track & 0xF] };
+          intermediate_note_data[key_indices[i]++] = { static_cast<float>(n.start), static_cast<float>(n.end), n.key, colors_packed[((n.track >> 4) + (n.track & 0xF)) % color_size] };
           x = x->next;
         }
       }
@@ -1916,10 +1920,10 @@ void Renderer::ImGuiFrame(GlobalTime* _gt)
       if(key_color[i] == -1)
       {
         //Bottom of black keys
-        draw_list->AddRectFilled(ImVec2(key_left[i] - 0.8f, window_height - keyboard_height),
-                                 ImVec2(key_left[i] + (key_widths[i] + 1.4f), window_height - (keyboard_height * (45.0f / 125.0f))), IM_COL32(10, 10, 10, 255), 2);
+        draw_list->AddRectFilled(ImVec2(key_left[i] - 1.0f, window_height - keyboard_height),
+                                 ImVec2(key_left[i] + (key_widths[i] + 1.0f), window_height - (keyboard_height * (45.0f / 125.0f))), IM_COL32(10, 10, 10, 255), 0);
         //Black keys
-        draw_list->AddRectFilledMultiColor(ImVec2(key_left[i], window_height - keyboard_height - (keyboard_height * 0.032)),
+        draw_list->AddRectFilledMultiColor(ImVec2(key_left[i], window_height - keyboard_height - (keyboard_height * 0.025)),
                                  ImVec2(key_left[i] + key_widths[i], window_height - (keyboard_height * (46.0f / 125.0f)) - (keyboard_height * 0.025)), IM_COL32(75, 75, 75, 255),
                                                                                                                                                         IM_COL32(30, 30, 30, 255),
                                                                                                                                                         IM_COL32(25, 25, 25, 255),
@@ -1942,18 +1946,22 @@ void Renderer::ImGuiFrame(GlobalTime* _gt)
   auto time_text = u.format_seconds(min(midi_renderer_time->load(), song_len)) + " / " + u.format_seconds(song_len);
 
   uint64_t nps = 0;
+  uint64_t poly = 0;
   auto saved_notes_played = *notes_played; // avoid race conditions
   notes_played_at_time.push_back(std::make_pair(midi_renderer_time->load(), saved_notes_played - last_notes_played));
   last_notes_played = saved_notes_played;
   while(!notes_played_at_time.empty() && notes_played_at_time.front().first < midi_renderer_time->load() - 1)
     notes_played_at_time.pop_front();
   for(auto x : notes_played_at_time)
+  {
     nps += x.second;
+  }
 
   const ImGuiStat statistics[] = {
     {ImGuiStatType::String, "Time:", &time_text, true},
     {ImGuiStatType::Float,  "FPS:", &framerate, true},
     {ImGuiStatType::Uint64, "NPS:", &nps, true},
+    {ImGuiStatType::Uint64, "Polyphony:", &polyphony, !hide_notes},
     {ImGuiStatType::Double, "Longest frame:", &max_elapsed_time, true},
     {ImGuiStatType::Uint64, "Rendered:", &last_notes_shown_count, true},
     {ImGuiStatType::Uint64, "Allocated:", &notes_alloced, true},
@@ -1971,7 +1979,7 @@ void Renderer::ImGuiFrame(GlobalTime* _gt)
     }
   }
 
-  ImVec2 stats_size;
+  float stat_height;
   ImGui::SetNextWindowPos(ImVec2(10.0f, 10.0f));
   ImGui::SetNextWindowSize(ImVec2(192.0f, 0.0f), ImGuiCond_Once);
   ImGui::Begin("stats", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMove |
@@ -2017,13 +2025,40 @@ void Renderer::ImGuiFrame(GlobalTime* _gt)
   auto n_played = fmt::format(std::locale(""), "{:n}", *notes_played);
   auto count = fmt::format(std::locale(""), "{:n}", *note_count);
   ImGui::Text((n_played + " / " + count).c_str());
-  if(hide_notes) ImGui::Text("Overlap remover enabled");
+  stat_height = ImGui::GetWindowHeight();
   ImGui::End();
 
+  //Overlap remover
+  if(hide_notes)
+  {
+    ImGui::SetNextWindowPos(ImVec2(10.0f, stat_height + 15.0f));
+    ImGui::SetNextWindowSize(ImVec2(192.0f, 0.0f));
+    ImGui::Begin("overlap", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMove |
+                 ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoNav |
+                 ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing);
+    ImGui::Text("Overlap remover enabled");
+    ImGui::End();
+  }
+
+  //Markers
+  float marker_height;
+  if(Config::GetConfig().markers && !marker->empty())
+  {
+    ImGui::SetNextWindowPos(ImVec2(window_width - 10.0f, 10.0f), 0, ImVec2(1, 0));
+    ImGui::Begin("marker", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMove |
+                 ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoNav |
+                 ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing);
+    ImGui::Text(marker->c_str());
+    marker_height = ImGui::GetWindowHeight();
+    ImGui::End();
+  } else {
+    marker_height = -5.0f;
+  }
+  
   //Paused
   if(paused)
   { 
-    ImGui::SetNextWindowPos(ImVec2(window_width - 10.0f, 10.0f), 0, ImVec2(1, 0));
+    ImGui::SetNextWindowPos(ImVec2(window_width - 10.0f, marker_height + 15.0f), 0, ImVec2(1, 0));
     ImGui::Begin("paused", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMove |
                  ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoNav |
                  ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing);
@@ -2048,6 +2083,7 @@ void Renderer::ImGuiFrame(GlobalTime* _gt)
         ImGui::Checkbox("Transparent Window*", &Config::GetConfig().transparent);
         ImGui::Checkbox("Hide Overlapping Notes (only faster on overlap-heavy or sustain-heavy MIDIs)", &Config::GetConfig().note_hide);
         ImGui::Checkbox("Toggle Discord Rich Presence*", &Config::GetConfig().discord_rpc);
+        ImGui::Checkbox("Display MIDI Marker text (only shown if the midi has markers)", &Config::GetConfig().markers);
         ImGui::SliderFloat("Start Delay (Seconds)*", &Config::GetConfig().start_delay, 0, 60);
         ImGui::SliderFloat("Note Speed", &Config::GetConfig().note_speed, 10, 0.01);
         if(ImGui::SliderFloat("Note Buffer (Seconds)", &Config::GetConfig().loader_buffer, 1, 100)) if(Config::GetConfig().loader_buffer < 0) Config::GetConfig().loader_buffer = 0;

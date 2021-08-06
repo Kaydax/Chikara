@@ -27,6 +27,7 @@ void Config::Load(std::string& path) {
   note_hide = reader.GetBoolean("Chikara", "NoteHide", note_hide);
   rainbow_bar = reader.GetBoolean("Chikara", "RainbowBar", rainbow_bar);
   discord_rpc = reader.GetBoolean("Chikara", "RPC", discord_rpc);
+  markers = reader.GetBoolean("Chikara", "Markers", markers);
   bar_color = GetVec3(reader, "Chikara", "BarColor", bar_color);
   clear_color = GetVec3(reader, "Chikara", "ClearColor", clear_color);
   note_speed = GetFloat(reader, "Chikara", "NoteSpeed", note_speed);
@@ -53,6 +54,7 @@ bool Config::Save() {
   WriteBool(ini, "NoteHide", note_hide);
   WriteBool(ini, "RainbowBar", rainbow_bar);
   WriteBool(ini, "RPC", discord_rpc);
+  WriteBool(ini, "Markers", markers);
   WriteVec3(ini, "BarColor", bar_color);
   WriteVec3(ini, "ClearColor", clear_color);
   WriteFloat(ini, "NoteSpeed", note_speed);

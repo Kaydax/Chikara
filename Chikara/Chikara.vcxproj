@@ -59,6 +59,7 @@
     <ClInclude Include="Platform.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="Shaders\notes_f.h" />
+    <ClInclude Include="Shaders\notes_g.h" />
     <ClInclude Include="Shaders\notes_v.h" />
     <ClInclude Include="Utils.h" />
   </ItemGroup>
@@ -98,6 +99,7 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
     <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+    <EnableASAN>false</EnableASAN>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -125,6 +127,9 @@
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(VULKAN_SDK)\Include</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64;$(VULKAN_SDK)\Bin</LibraryPath>
+    <GlfwLinkage>static</GlfwLinkage>
+    <Linkage-freetype>
+    </Linkage-freetype>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -137,6 +142,8 @@
     <OutDir>$(SolutionDir)\bin\$(Platform)\$(Configuration)\</OutDir>
     <GlfwLinkage>static</GlfwLinkage>
     <CustomBuildBeforeTargets>ClCompile</CustomBuildBeforeTargets>
+    <Linkage-freetype>
+    </Linkage-freetype>
   </PropertyGroup>
   <PropertyGroup Label="LLVM" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <UseClangCl>true</UseClangCl>
@@ -162,11 +169,12 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>CHIKARA_VERSION="Alpha 0.1";_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CHIKARA_VERSION="Alpha 6 Debug";_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)externals\json\include;$(SolutionDir)externals\inih;$(SolutionDir)externals\imgui;$(SolutionDir)externals\imgui\examples;$(SolutionDir)externals\readerwriterqueue;$(SolutionDir)externals\stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)externals\json\include;$(SolutionDir)externals\inih;$(SolutionDir)externals\imgui;$(SolutionDir)externals\imgui\backends;$(SolutionDir)externals\readerwriterqueue;$(SolutionDir)externals\stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4996</DisableSpecificWarnings>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -206,10 +214,10 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>false</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>CHIKARA_VERSION="Alpha 5";NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>RELEASE;CHIKARA_VERSION="Alpha 6";NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)externals\discord-rpc\win64-static\include;$(SolutionDir)externals\json\include;$(SolutionDir)externals\inih;$(SolutionDir)externals\imgui;$(SolutionDir)externals\imgui\backends;$(SolutionDir)externals\readerwriterqueue;$(SolutionDir)externals\stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)externals\om\include;$(SolutionDir)externals\discord-rpc\win64-static\include;$(SolutionDir)externals\json\include;$(SolutionDir)externals\inih;$(SolutionDir)externals\imgui;$(SolutionDir)externals\imgui\backends;$(SolutionDir)externals\readerwriterqueue;$(SolutionDir)externals\stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <FloatingPointModel>Fast</FloatingPointModel>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <DisableSpecificWarnings>4996</DisableSpecificWarnings>
@@ -224,7 +232,9 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(SolutionDir)externals\discord-rpc\win64-static\lib\discord-rpc.lib;shlwapi.lib;$(VULKAN_SDK)\Lib\vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(SolutionDir)externals\om\lib\OmniMIDI_Win64.lib;$(SolutionDir)externals\discord-rpc\win64-static\lib\discord-rpc.lib;shlwapi.lib;$(VULKAN_SDK)\Lib\vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/p:DefineConstants="RELEASE" %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalLibraryDirectories>$(SolutionDir)externals\om\lib\</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent>
       <Command>

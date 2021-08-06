@@ -50,11 +50,13 @@ const std::vector<const char*> device_exts = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
-#ifdef NDEBUG
-const bool enable_validation_layers = false;
-#else
-const bool enable_validation_layers = true;
-#endif
+//#ifdef NDEBUG
+//const bool enable_validation_layers = false;
+//#else
+//const bool enable_validation_layers = true;
+//#endif
+
+const bool enable_validation_layers = false; //Just keep it off unless otherwise needed
 
 #pragma region Structs
 
@@ -212,10 +214,12 @@ class Renderer
 public:
   moodycamel::ReaderWriterQueue<NoteEvent>** note_event_buffer;
   std::vector<std::array<std::stack<Note*>, 256>> note_stacks;
-  std::atomic<float>* midi_renderer_time;
+  std::atomic<float>* midi_renderer_time = new std::atomic<float>;
   uint64_t* note_count;
   uint64_t* notes_played;
+  uint64_t polyphony = 0;
   std::list<std::pair<double, int>> notes_played_at_time;
+  std::string* marker;
   size_t last_notes_played = 0;
   GLFWwindow* window;
   VkInstance inst;
@@ -282,6 +286,14 @@ public:
 
   std::vector<VkSemaphore> next_step_semaphores;
 
+  std::vector<glm::vec3> colors = {{0,0,0}};
+  std::vector<uint32_t> colors_packed;
+  std::vector<uint32_t> dark_colors;
+  std::vector<uint32_t> darker_colors;
+  std::vector<uint32_t> darkerer_colors;
+
+  size_t color_size;
+
   std::array<CustomList<Note>, 256> notes_shown;
   size_t last_notes_shown_count;
   size_t last_notes_processed = 0;
@@ -295,7 +307,7 @@ public:
   float key_widths[257];
   float keyboard_height = 0;
   float keyboard_time = 0;
-  char key_color[257] = {};
+  int key_color[257] = {};
 
   bool show_settings = false;
   bool vsync = false;
@@ -316,6 +328,7 @@ public:
 
   Renderer();
 
+  void createColors();
   void createInstance();
   void setupDebugMessenger();
   void createSurface();
