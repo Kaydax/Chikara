@@ -131,7 +131,7 @@ class MidiTrack
   private:
     uint8_t prev_command = 0;
     BufferedReader* reader = NULL;
-
+    inline static uint32_t getVlv(BufferedReader* reader);
     double multiplierFromTempo(uint32_t tempo, uint16_t ppq);
 };
 
