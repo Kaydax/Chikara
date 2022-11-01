@@ -405,7 +405,7 @@ void Midi::PlaybackThread()
         break;
       }
       if((msg & 0xf0) == 0x90 && (msg & 0xff0000) != 0)
-        notes_played++;
+        ++notes_played;
 
       SendDirectData(msg);
 
@@ -548,15 +548,7 @@ void MidiTrack::parseDelta()
   if(ended) return;
   try
   {
-    uint8_t c;
-    uint32_t val = 0;
-    while((c = reader->readByte()) > 0x7F)
-    {
-      val = (val << 7) | (c & 0x7F);
-    }
-    val = val << 7 | c;
-
-    tick_time += val;
+    tick_time += MidiTrack::getVlv(reader);
     delta_parsed = true;
   } catch(const char* e)
   {
@@ -569,13 +561,7 @@ void MidiTrack::parseDeltaTime()
   if(ended) return;
   try
   {
-    uint8_t c;
-    uint32_t val = 0;
-    while((c = reader->readByte()) > 0x7F)
-    {
-      val = (val << 7) | (c & 0x7F);
-    }
-    val = val << 7 | c;
+    auto val = MidiTrack::getVlv(reader);
 
     while(global_tempo_event_index < global_tempo_event_count && val + tick_time > global_tempo_events[global_tempo_event_index].pos)
     {
@@ -606,7 +592,7 @@ double MidiTrack::multiplierFromTempo(uint32_t tempo, uint16_t ppq)
 
 inline uint32_t MidiTrack::getVlv(BufferedReader* reader)
 {
-  uint64_t value = 0;
+  uint32_t value = 0;
   uint8_t single_byte;
   do
   {
