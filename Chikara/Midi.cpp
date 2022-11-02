@@ -405,7 +405,7 @@ void Midi::PlaybackThread()
         break;
       }
       if((msg & 0xf0) == 0x90 && (msg & 0xff0000) != 0)
-        notes_played++;
+        ++notes_played;
 
       SendDirectData(msg);
 
@@ -548,15 +548,7 @@ void MidiTrack::parseDelta()
   if(ended) return;
   try
   {
-    uint8_t c;
-    uint32_t val = 0;
-    while((c = reader->readByte()) > 0x7F)
-    {
-      val = (val << 7) | (c & 0x7F);
-    }
-    val = val << 7 | c;
-
-    tick_time += val;
+    tick_time += MidiTrack::getVlv(reader);
     delta_parsed = true;
   } catch(const char* e)
   {
@@ -569,13 +561,7 @@ void MidiTrack::parseDeltaTime()
   if(ended) return;
   try
   {
-    uint8_t c;
-    uint32_t val = 0;
-    while((c = reader->readByte()) > 0x7F)
-    {
-      val = (val << 7) | (c & 0x7F);
-    }
-    val = val << 7 | c;
+    auto val = MidiTrack::getVlv(reader);
 
     while(global_tempo_event_index < global_tempo_event_count && val + tick_time > global_tempo_events[global_tempo_event_index].pos)
     {
@@ -602,6 +588,18 @@ void MidiTrack::parseDeltaTime()
 double MidiTrack::multiplierFromTempo(uint32_t tempo, uint16_t ppq)
 {
   return tempo / 1000000.0 / ppq;
+}
+
+inline uint32_t MidiTrack::getVlv(BufferedReader* reader)
+{
+  uint32_t value = 0;
+  uint8_t single_byte;
+  do
+  {
+    single_byte = reader->readByte();
+    value = value << 7 | single_byte & 0x7F;
+  } while (single_byte & 0x80);
+  return value;
 }
 
 void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_note_events, moodycamel::ReaderWriterQueue<MidiEvent>* global_misc, moodycamel::ReaderWriterQueue<TextEvent>* text_misc)
@@ -732,13 +730,7 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_not
           {
             uint8_t command2 = reader->readByte();
 
-            uint8_t c;
-            uint32_t val = 0;
-            while((c = reader->readByte()) > 0x7F)
-            {
-              val = (val << 7) | (c & 0x7F);
-            }
-            val = val << 7 | c;
+            auto val = getVlv(reader);
 
             switch(command2)
             {
@@ -756,15 +748,13 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_not
               {
                 if(stage_2)
                 {
-                  uint8_t* data = new uint8_t[val + 1];
+                  uint8_t* data = new uint8_t[val];
                   for(int i = 0; i < val; i++) data[i] = reader->readByte();
                   if(command2 == 0x06)
                   {
-                    //TODO: Actually do something with this please
-                    data[val] = '\0';
                     TextEvent text_event;
                     text_event.time = static_cast<float>(time);
-                    text_event.text = std::string((char*)data);
+                    text_event.text.assign(data, data + val);
                     text_misc->enqueue(text_event);
                     //std::cout << data << std::endl;
                   }
@@ -838,15 +828,28 @@ void MidiTrack::parseEvent(moodycamel::ReaderWriterQueue<NoteEvent>** global_not
             break;
           }
           case 0xF0:
-            while(reader->readByte() != 0xF7);
+          {
+            //printf("\nSkip sysex F0");
+            auto sysexLength = getVlv(reader);
+            reader->skipBytes(sysexLength);
+
             break;
-          case 0xF2:
+          }
+          case 0xF2: // what is this?
             reader->readByte();
             reader->readByte();
             break;
-          case 0xF3:
+          case 0xF3: // what is this? 
             reader->readByte();
             break;
+          case 0xF7:
+          {
+            //printf("\nSkip sysex F7");
+            auto sysexLength = getVlv(reader);
+            reader->skipBytes(sysexLength);
+
+            break;
+          }
           default:
             break;
         }
